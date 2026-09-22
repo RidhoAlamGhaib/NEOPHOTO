@@ -1,0 +1,33 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type Note @table {
+  title: String!
+  content: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  reminderDate: Timestamp
+  user: User
+}
+
+type Tag @table {
+  name: String!
+  createdAt: Timestamp!
+}
+
+type NoteTag @table(key: ["note", "tag"]) {
+  note: Note!
+  tag: Tag!
+  createdAt: Timestamp!
+}
+
+type Share @table {
+  note: Note!
+  senderUser: User!
+  recipientUser: User!
+  sharedAt: Timestamp!
+}
