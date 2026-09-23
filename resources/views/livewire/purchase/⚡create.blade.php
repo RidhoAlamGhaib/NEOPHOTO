@@ -35,6 +35,8 @@ new class extends Component
     public $coupon = '';
     public $couponchck = '';
     public bool $isProcessing = false;
+    public bool $showReceipt = false;
+    public bool $paymentFailed = false;
 
     private const HOLIDAY_TEST_MODE = false;
 
@@ -403,12 +405,18 @@ new class extends Component
     public function addcustomer($orderId)
     {
         $this->isProcessing = true;
+        $this->paymentFailed = false;
 
         // Pastiin diskon MERDEKA fresh sebelum disimpen ke order
         $this->recomputeMerdekaDiscount();
         $this->recomputePaylessDiscount();
 
-        $this->puppet($orderId);
+        if (! $this->puppet($orderId)) {
+            $this->isProcessing = false;
+            $this->paymentFailed = true;
+            $this->addError('payment', 'Kode transaksi tidak dapat dibuat sekarang. Coba lagi sebentar lagi.');
+            return;
+        }
 
         $customer = customer::create($this->only(['name', 'telp', 'email', 'instagram']));
 
@@ -421,8 +429,9 @@ new class extends Component
             'outlet'      => auth()->user()->outlet,
         ]);
 
-        $this->isProcessing = false;
         $this->refreshData();
+
+        return redirect()->route('checkout', ['id' => $orderId, 'showReceipt' => 1, 'sync' => 1]);
     }
 
     #[On('regenerate')]
@@ -451,6 +460,7 @@ new class extends Component
 
         $maxRetry = 1;
         $data     = [];
+        $generated = false;
         
         if($OrderItem->printType == 111){
             foreach ($data as $result) {
@@ -467,25 +477,29 @@ new class extends Component
                 $attempt++;
 
                 try {
-                    $res = Http::timeout(90)->post($server, ['orders' => $orders]);
+                    $res = Http::connectTimeout(10)
+                        ->timeout(10)
+                        ->post($server, ['orders' => $orders]);
                 } catch (\Exception $e) {
-                    sleep(2);
                     continue;
                 }
 
                 if (!$res->successful()) {
-                    sleep(2);
                     continue;
                 }
 
-                $data  = $res->json();
-                $valid = collect($data)->filter(fn($item) => !empty($item['kupon']))->count();
+                $responseData = $res->json();
+                $data = is_array($responseData) && array_is_list($responseData)
+                    ? $responseData
+                    : [$responseData];
+                $valid = collect($data)->filter(
+                    fn($item) => is_array($item) && !empty($item['kupon'])
+                )->count();
 
                 if ($valid > 0) {
+                    $generated = true;
                     break 2;
                 }
-
-                sleep(2);
             } while ($attempt < $maxRetry);
         }
 
@@ -496,10 +510,14 @@ new class extends Component
                 $item->save();
             }
         }
+
+        return $generated;
     }}
 
     public function mount($id)
     {
+        $this->showReceipt = request()->boolean('showReceipt');
+
         if (auth()->user()->outlet == "superadmin") {
             $this->name = "Test";
             $this->appr = "123123";
@@ -927,14 +945,15 @@ new class extends Component
                 </div>
 
                 {{-- Payment Modal --}}
-                <div class="modal fade"
+                 <div class="modal fade {{ $showReceipt ? 'show' : '' }}"
                      wire:ignore.self
                      id="staticBackdrop"
                      data-bs-backdrop="static"
                      data-bs-keyboard="false"
                      tabindex="-1"
                      aria-labelledby="staticBackdropLabel"
-                     aria-hidden="true">
+                     aria-hidden="{{ $showReceipt ? 'false' : 'true' }}"
+                     @if ($showReceipt) style="display:block;" @endif>
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
 
@@ -972,6 +991,10 @@ new class extends Component
                                 <div wire:loading.class="d-none" wire:target="addcustomer">
                                     <div class="card p-4">
                                         <h3 class="fw-bold mb-3">Receipt</h3>
+
+                                        @error('payment')
+                                            <div class="alert alert-danger">{{ $message }}</div>
+                                        @enderror
 
                                         {{-- HOLIDAY banner inside modal too --}}
                                         @if ($holidayApplied)
@@ -1062,7 +1085,20 @@ new class extends Component
                                         @endforeach
 
                                         {{-- Discount + Total (unpaid state) --}}
-                                        @if (!$this->appr)
+                                        @if ($paymentFailed)
+                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                <a href="{{ route('home') }}" class="btn btn-secondary">Cancel</a>
+                                                <button type="button"
+                                                        class="btn btn-primary"
+                                                        wire:click="addcustomer({{ $order->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="addcustomer">
+                                                    <span wire:loading wire:target="addcustomer" class="spinner-border spinner-border-sm me-1"></span>
+                                                    Retry
+                                                </button>
+                                            </div>
+
+                                        @elseif (!$this->appr)
                                             @if ($this->coupon)
                                                 <div class="d-flex justify-content-between ms-3 text-muted">
                                                     <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($paylessApplied ? ' (PAYLESS)' : ''))) }}:</span>
