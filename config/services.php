@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'google_sheets' => [
+        'spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
+        'range' => env('GOOGLE_SHEETS_RANGE', 'Transactions!A:J'),
+        'credentials' => env('GOOGLE_SHEETS_CREDENTIALS'),
+        'ca_bundle' => env('GOOGLE_SHEETS_CA_BUNDLE', true),
+    ],
+
 ];
