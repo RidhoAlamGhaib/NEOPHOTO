@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Make new Laravel project
+        run: |
+          composer global require laravel/installer
+          ~/.composer/vendor/bin/laravel new sweetalert2-laravel-test --pest --no-interaction
+
+      - name: Install sweetalert2/laravel
+        run: |
+          cd sweetalert2-laravel-test
+          composer config repositories.local path ../
+          composer require sweetalert2/laravel:@dev
+
+      - name: Copy Tests
+        run: |
+          cd sweetalert2-laravel-test
+          cp ../tests/*Test.php tests/Feature
+          rm tests/Feature/ExampleTest.php tests/Unit/ExampleTest.php
+          rm -rf resources/views
+          cp -r ../tests/views resources
+
+      - name: Run tests
+        run: |
+          cd sweetalert2-laravel-test
+          ./vendor/bin/pest
+

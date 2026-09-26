@@ -1,0 +1,24 @@
+{
+  "name": "sweetalert2/laravel",
+  "description": "Official SweetAlert2 integration for Laravel framework",
+  "license": "MIT",
+  "require": {
+    "laravel/framework": "^11.0 || ^12.0"
+  },
+  "autoload": {
+    "psr-4": {
+        "SweetAlert2\\Laravel\\": "src/"
+    }
+  },
+  "suggest": {
+    "livewire/livewire": "Required to have the WithSweetAlert trait use Livewire events to show popups on Livewire updates.",
+    "inertiajs/inertia-laravel": "Required to use SweetAlert2 with Inertia.js shared flash data."
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+          "SweetAlert2\\Laravel\\ServiceProvider"
+      ]
+    }
+  }
+}
