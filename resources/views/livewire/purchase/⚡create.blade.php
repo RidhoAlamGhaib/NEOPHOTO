@@ -453,6 +453,7 @@ new class extends Component
         }
 
         $servers = [
+            'http://MainServer.neophotoindonesia.my.id/generate',
             'http://api.neophotoindonesia.my.id/generate',
             'https://blokmhighmerah.neophotoindonesia.my.id/generate',
             'http://backup2.neophotoindonesia.my.id/generate',
