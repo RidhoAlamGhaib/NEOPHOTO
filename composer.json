@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.10.1",
         "laravel/wayfinder": "^0.1.9",
         "livewire/livewire": "*",
+        "midtrans/midtrans-php": "*",
         "realrashid/sweet-alert": "*",
         "spatie/browsershot": "*",
         "sweetalert2/laravel": "*"

@@ -10,7 +10,6 @@ use App\Http\Requests\UpdatecustomerRequest;
 use App\Services\GoogleSheetsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
 class CustomerController extends Controller
 {
     private function rowFromOrder(Order $order): array
@@ -130,22 +129,19 @@ class CustomerController extends Controller
     {
         return view('login');
     }
-
     public function dashboard()
     {
         if(Auth::check()){
-            return view('dashboard.index');
+        return view('dashboard.index');
         }else{
             return redirect('/login');
         }
     }
-
     public function logout(){
         Auth::logout(); // Clears the authentication information in the user's session.
 
         return redirect('/');
     }
-
     /**
      * Show the form for creating a new resource.
      */

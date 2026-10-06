@@ -44,6 +44,7 @@ new class extends Component
     public array  $availableOutlets = [];
 
     public array $servers = [
+        ['name' => 'Server Kokas S1', 'url' => 'https://mainserver.neophotoindonesia.my.id/status','update' => 'https://mainserver.neophotoindonesia.my.id/update',     'status' => '','err'=>''],
         ['name' => 'Server Kokas S1', 'url' => 'https://api.neophotoindonesia.my.id/status','update' => 'https://api.neophotoindonesia.my.id/update',     'status' => '','err'=>''],
         ['name' => 'Server Soho S1',  'url' => 'https://sohos1.neophotoindonesia.my.id/status','update' => 'https://sohos1.neophotoindonesia.my.id/update', 'status' => '','err'=>''],
         ['name' => 'Server Soho S2',  'url' => 'https://sohos2.neophotoindonesia.my.id/status','update' => 'https://sohos2.neophotoindonesia.my.id/update', 'status' => '','err'=>''],
