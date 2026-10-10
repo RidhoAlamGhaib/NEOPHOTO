@@ -83,10 +83,12 @@ new class extends Component
     public bool $halloweenApplied  = false;
 
     // ── HIGH ANGLE BUNDLING (all outlet, s/d 31 Des 2026) ───────────────────────
-    private const HIGHANGLE_BUNDLE_HIGHANGLE = 4;
-    private const HIGHANGLE_BUNDLE_STANDAR   = [1, 2, 3];
-    private const HIGHANGLE_BUNDLE_DEADLINE  = '2026-12-31';
-    private const HIGHANGLE_BUNDLE_DISCOUNT  = 25000;
+    private const HIGHANGLE_BUNDLE_HIGHANGLE   = 4; // item High Angle
+    private const HIGHANGLE_BUNDLE_STANDAR     = 1; // item Standar 2 Lembar
+    private const HIGHANGLE_BUNDLE_EXTRA_PRINT = 6; // addon Extra Print Standar
+    private const HIGHANGLE_BUNDLE_KEYCHAIN    = 8; // addon keychain
+    private const HIGHANGLE_BUNDLE_DEADLINE    = '2026-12-31';
+    private const HIGHANGLE_BUNDLE_DISCOUNT    = 25000;
 
     public bool $highAngleBundleEligible = false;
     public bool $highAngleBundleApplied  = false;
@@ -423,17 +425,8 @@ new class extends Component
     // ── HIGH ANGLE BUNDLING (all outlet) ────────────────────────────────────────
     private function checkHighAngleBundleEligibility(): void
     {
-        $isPeriod = $this->isHighAngleBundlePeriod();
-
-        $hasHighAngle = $this->order
-            ? $this->order->items->contains(fn($it) => (int) $it->product_id === self::HIGHANGLE_BUNDLE_HIGHANGLE)
-            : false;
-
-        $hasStandar = $this->order
-            ? $this->order->items->contains(fn($it) => in_array((int) $it->product_id, self::HIGHANGLE_BUNDLE_STANDAR))
-            : false;
-
-        $this->highAngleBundleEligible = $isPeriod && $hasHighAngle && $hasStandar;
+        $this->highAngleBundleEligible = $this->isHighAngleBundlePeriod()
+            && $this->highAngleBundleRequirementsMet();
     }
 
     private function isHighAngleBundlePeriod(): bool
@@ -441,6 +434,34 @@ new class extends Component
         return Carbon::now()->lessThanOrEqualTo(
             Carbon::parse(self::HIGHANGLE_BUNDLE_DEADLINE)->endOfDay(),
         );
+    }
+
+    // Wajib ada: item High Angle, item Standar 2 Lembar + Extra Print Standar-nya,
+    // dan minimal 1 Keychain. Dicek dari DB biar akurat walau addon berubah belakangan.
+    private function highAngleBundleRequirementsMet(): bool
+    {
+        if (!$this->order) {
+            return false;
+        }
+
+        $items = OrderItem::where('order_id', $this->id)->get();
+
+        // 1) Item High Angle
+        $hasHighAngle = $items->contains(fn($it) => (int) $it->product_id === self::HIGHANGLE_BUNDLE_HIGHANGLE);
+
+        // 2) Item Standar 2 Lembar + Extra Print Standar (addon 6) nempel di item itu
+        $standarIds    = $items->where('product_id', self::HIGHANGLE_BUNDLE_STANDAR)->pluck('id');
+        $hasExtraPrint = $standarIds->isNotEmpty()
+            && (int) OrderItemAddon::whereIn('order_item_id', $standarIds)
+                ->where('addon_id', self::HIGHANGLE_BUNDLE_EXTRA_PRINT)
+                ->sum('qty') > 0;
+
+        // 3) Keychain (addon 8) di order manapun
+        $hasKeychain = (int) OrderItemAddon::whereIn('order_item_id', $items->pluck('id'))
+            ->where('addon_id', self::HIGHANGLE_BUNDLE_KEYCHAIN)
+            ->sum('qty') > 0;
+
+        return $hasHighAngle && $hasExtraPrint && $hasKeychain;
     }
 
     public function applyHighAngleBundle(): void
@@ -455,10 +476,8 @@ new class extends Component
             return;
         }
 
-        $hasHighAngle = $this->order->items->contains(fn($it) => (int) $it->product_id === self::HIGHANGLE_BUNDLE_HIGHANGLE);
-        $hasStandar   = $this->order->items->contains(fn($it) => in_array((int) $it->product_id, self::HIGHANGLE_BUNDLE_STANDAR));
-        if (!$hasHighAngle || !$hasStandar) {
-            $this->addError('coupon', 'Wajib beli 1 High Angle + 1 Standar bareng buat promo ini.');
+        if (!$this->highAngleBundleRequirementsMet()) {
+            $this->addError('coupon', 'Wajib ada High Angle + Standar 2 Lembar (plus Extra Print) + Keychain buat promo ini.');
             return;
         }
 
@@ -468,8 +487,8 @@ new class extends Component
             return;
         }
 
-        $promo->diskon               = self::HIGHANGLE_BUNDLE_DISCOUNT;
-        $this->coupon                = $promo;
+        $promo->diskon                = self::HIGHANGLE_BUNDLE_DISCOUNT;
+        $this->coupon                 = $promo;
         $this->highAngleBundleApplied = true;
 
         session()->flash('successvc', '📸 Promo High Angle Bundling diterapkan! Potongan Rp 25.000.');
@@ -691,6 +710,7 @@ new class extends Component
         }
 
         $this->recomputeMerdekaDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 
@@ -736,6 +756,7 @@ new class extends Component
         $addon->save();
 
         $this->recomputeMerdekaDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 
@@ -779,6 +800,7 @@ new class extends Component
         }
 
         $this->recomputeMerdekaDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 };
@@ -897,7 +919,7 @@ new class extends Component
                     <div class="alert border-0 text-start py-2 mb-2"
                          style="background:linear-gradient(135deg,#f72585,#b5179e);color:#fff;border-radius:14px;">
                         <div class="fw-bold mb-1" style="font-size:14px;">📸 HIGH ANGLE BUNDLING</div>
-                        <div style="font-size:12px;">High Angle + Standar 2 Lembar = potongan Rp 25.000 (s/d 31 Des 2026)</div>
+                        <div style="font-size:12px;">High Angle + Standar 2 Lembar (+ Extra Print) + Keychain = potongan Rp 25.000 (s/d 31 Des 2026)</div>
                         <button type="button"
                                 wire:click="applyHighAngleBundle"
                                 class="btn btn-sm fw-bold rounded-pill px-3 mt-2"
