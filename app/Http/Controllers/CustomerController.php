@@ -113,13 +113,8 @@ class CustomerController extends Controller
         }
 
         $orders = $query->latest()->get();
-        app(GoogleSheetsService::class)->replaceRows($this->sheetRows($orders));
+        return response()->json(['rows' => $this->sheetRows($orders)]);
 
-        return response()->json([
-            'status' => 'ok',
-            'destination' => 'google_sheets',
-            'count' => $orders->count(),
-        ]);
     }
 
     /**

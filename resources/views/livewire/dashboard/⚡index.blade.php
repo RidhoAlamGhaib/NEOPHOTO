@@ -20,6 +20,20 @@ new class extends Component
 
     public string $searchCustomer = '';
     public string $period         = 'weekly'; // daily | weekly | monthly
+    public array $generationMessages = [];
+    public array $generationTypes = [];
+    public bool $showManualCodeForm = false;
+    public string $manualGenerationType = '';
+    public int $manualGenerationCount = 1;
+    public array $manualGeneratedCodes = [];
+    public string $manualGenerationMessage = '';
+
+    private const GENERATION_SERVERS = [
+        'http://sohomain.neophotoindonesia.my.id/generate',
+        'http://api.neophotoindonesia.my.id/generate',
+        'http://MainServer.neophotoindonesia.my.id/generate',
+        'http://backup2.neophotoindonesia.my.id/generate',
+    ];
 
     public float  $sales          = 0;
     public float  $salesGrowth    = 0;
@@ -44,7 +58,7 @@ new class extends Component
     public array  $availableOutlets = [];
 
     public array $servers = [
-        ['name' => 'Server Kokas S1', 'url' => 'https://mainserver.neophotoindonesia.my.id/status','update' => 'https://mainserver.neophotoindonesia.my.id/update',     'status' => '','err'=>''],
+        ['name' => 'Server Main', 'url' => 'https://mainserver.neophotoindonesia.my.id/status','update' => 'https://mainserver.neophotoindonesia.my.id/update',     'status' => '','err'=>''],
         ['name' => 'Server Kokas S1', 'url' => 'https://api.neophotoindonesia.my.id/status','update' => 'https://api.neophotoindonesia.my.id/update',     'status' => '','err'=>''],
         ['name' => 'Server Soho S1',  'url' => 'https://sohos1.neophotoindonesia.my.id/status','update' => 'https://sohos1.neophotoindonesia.my.id/update', 'status' => '','err'=>''],
         ['name' => 'Server Soho S2',  'url' => 'https://sohos2.neophotoindonesia.my.id/status','update' => 'https://sohos2.neophotoindonesia.my.id/update', 'status' => '','err'=>''],
@@ -120,10 +134,85 @@ new class extends Component
 
     public function mount(): void
     {
+        $this->generationTypes = product::whereNot('type', 'addon')
+            ->where('type', '!=', '111')
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type')
+            ->map(fn($type) => (string) $type)
+            ->values()
+            ->all();
+        $this->manualGenerationType = $this->generationTypes[0] ?? '';
         $this->computeSummary();
         $this->loadData();
         $this->settlementDate = Carbon::today()->format('Y-m-d');
         $this->loadSettlement();
+    }
+
+    public function toggleManualCodeForm(): void
+    {
+        $this->showManualCodeForm = !$this->showManualCodeForm;
+        $this->manualGeneratedCodes = [];
+        $this->manualGenerationMessage = '';
+        $this->resetErrorBag('manualGeneration');
+    }
+
+    public function generateManualCodes(): void
+    {
+        $validated = $this->validate([
+            'manualGenerationType' => ['required', 'string', \Illuminate\Validation\Rule::in($this->generationTypes)],
+            'manualGenerationCount' => ['required', 'integer', 'min:1', 'max:100'],
+        ], [], [
+            'manualGenerationType' => 'print type',
+            'manualGenerationCount' => 'print count',
+        ]);
+
+        $this->manualGeneratedCodes = [];
+        $this->manualGenerationMessage = '';
+        $requestId = random_int(1_000_000_000, 2_147_483_647);
+        $payload = [
+            'OrderId' => $requestId,
+            'type' => $validated['manualGenerationType'],
+            'count' => (int) $validated['manualGenerationCount'],
+            'kode' => 'FREE',
+        ];
+
+        foreach (self::GENERATION_SERVERS as $server) {
+            try {
+                $response = Http::connectTimeout(10)
+                    ->timeout(90)
+                    ->post($server, ['orders' => [$payload]]);
+            } catch (\Exception $e) {
+                report($e);
+                continue;
+            }
+
+            if (!$response->successful()) {
+                continue;
+            }
+
+            $responseData = $response->json();
+            $results = is_array($responseData) && array_is_list($responseData)
+                ? $responseData
+                : [$responseData];
+
+            foreach ($results as $result) {
+                if (
+                    is_array($result)
+                    && (int) ($result['idx'] ?? 0) === $requestId
+                    && !empty($result['kupon'])
+                ) {
+                    $this->manualGeneratedCodes[] = (string) $result['kupon'];
+                }
+            }
+
+            if ($this->manualGeneratedCodes) {
+                $this->manualGenerationMessage = 'Code generated successfully. It is not attached to an order.';
+                return;
+            }
+        }
+
+        $this->manualGenerationMessage = 'Could not get a code from the generation servers. Please try again.';
     }
 
     public function updatedSearchCustomer(): void { $this->resetPage(); $this->loadData(); $this->computeSummary(); }
@@ -520,49 +609,63 @@ public function frame($x): void
 
     public function regenerate($id): void
     {
-        $cartItems = OrderItem::where('id', $id)->get();
-        $orders    = [];
-
-        foreach ($cartItems as $item) {
-            $orders[] = [
-                'OrderId' => $item->id,
-                'type'    => $item->printType,
-                'count'   => $item->printCount,
-                'kode'    => 'FREE',
-            ];
+        $item = OrderItem::find($id);
+        if (!$item) {
+            $this->generationMessages[$id] = 'Order item not found.';
+            return;
+        }
+        if ((int) $item->printType === 111) {
+            $this->generationMessages[$id] = 'This item does not require a generation code.';
+            return;
         }
 
         $servers  = [
+            'http://MainServer.neophotoindonesia.my.id/generate',
             'http://api.neophotoindonesia.my.id/generate',
             'http://backup1.neophotoindonesia.my.id/generate',
             'http://backup2.neophotoindonesia.my.id/generate',
         ];
-        $maxRetry = 1;
-        $data     = [];
+        $order = [
+            'OrderId' => $item->id,
+            'type'    => $item->printType,
+            'count'   => $item->printCount,
+            'kode'    => 'FREE',
+        ];
 
         foreach ($servers as $server) {
-            $attempt = 0;
-            do {
-                $attempt++;
-                try {
-                    $res = Http::timeout(90)->post($server, ['orders' => $orders]);
-                } catch (\Exception $e) { sleep(2); continue; }
-                if (!$res->successful()) { sleep(2); continue; }
-                $data  = $res->json();
-                $valid = collect($data)->filter(fn($item) => !empty($item['kupon']))->count();
-                if ($valid > 0) break 2;
-                sleep(2);
-            } while ($attempt < $maxRetry);
-        }
+            try {
+                $response = Http::connectTimeout(10)
+                    ->timeout(90)
+                    ->post($server, ['orders' => [$order]]);
+            } catch (\Exception $e) {
+                continue;
+            }
 
-        foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty($result['kupon'])) {
-                $item->code = $result['kupon'];
-                $item->save();
+            if (!$response->successful()) {
+                continue;
+            }
+
+            $responseData = $response->json();
+            $results = is_array($responseData) && array_is_list($responseData)
+                ? $responseData
+                : [$responseData];
+
+            foreach ($results as $result) {
+                if (
+                    is_array($result)
+                    && (int) ($result['idx'] ?? 0) === (int) $item->id
+                    && !empty($result['kupon'])
+                ) {
+                    $item->code = $result['kupon'];
+                    $item->save();
+                    $this->generationMessages[$id] = 'Code received successfully.';
+                    $this->loadData();
+                    return;
+                }
             }
         }
 
+        $this->generationMessages[$id] = 'Could not get a code from the generation servers. Please try again.';
         $this->loadData();
     }
 };
@@ -654,10 +757,63 @@ public function frame($x): void
                                    placeholder="Search by customer, outlet, appr code, or item code…" />
                             <a href="{{ route('orders.export', ['period' => $period, 'search' => $searchCustomer]) }}"
                                class="btn btn-sm btn-success"
-                               target="_blank">
+                               onclick="exportOrdersXlsx(event, this.href)">
                                 <i class="mdi mdi-microsoft-excel me-1"></i> Export Excel
                             </a>
+                            <button type="button" wire:click="toggleManualCodeForm" class="btn btn-sm btn-primary">
+                                <i class="mdi mdi-ticket-confirmation-outline me-1"></i> Generate code
+                            </button>
+                            <small class="text-muted">
+                                101: standar 2 lembar<br>
+                                103: standar 4 foto, bigroom 4 photo<br>
+                                104: high angle, yearbook<br>
+                                105: standar 6 foto<br>
+                                111: id/visa
+                            </small>
                         </div>
+                        @if ($showManualCodeForm)
+                            <div class="border rounded p-3 mb-3">
+                                <div class="d-flex align-items-end gap-2 flex-wrap">
+                                    <div>
+                                        <label for="manual-generation-type" class="form-label mb-1">Print type</label>
+                                        <select id="manual-generation-type" wire:model="manualGenerationType" class="form-select form-select-sm">
+                                            @foreach ($generationTypes as $type)
+                                                <option value="{{ $type }}">{{ $type }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('manualGenerationType') <small class="text-danger">{{ $message }}</small> @enderror
+                                    </div>
+                                    <div>
+                                        <label for="manual-generation-count" class="form-label mb-1">Print count</label>
+                                        <input id="manual-generation-count" type="number" min="1" max="100"
+                                               wire:model="manualGenerationCount" class="form-control form-control-sm">
+                                        @error('manualGenerationCount') <small class="text-danger">{{ $message }}</small> @enderror
+                                    </div>
+                                    <button type="button" wire:click="generateManualCodes"
+                                            wire:loading.attr="disabled" wire:target="generateManualCodes"
+                                            class="btn btn-sm btn-primary" @disabled(!$generationTypes)>
+                                        <span wire:loading wire:target="generateManualCodes" class="spinner-border spinner-border-sm me-1"></span>
+                                        Request code
+                                    </button>
+                                </div>
+                                @if (!$generationTypes)
+                                    <small class="text-danger d-block mt-2">No eligible print types are configured.</small>
+                                @endif
+                                @if ($manualGenerationMessage)
+                                    <div class="mt-3 {{ $manualGeneratedCodes ? 'text-success' : 'text-danger' }}">
+                                        {{ $manualGenerationMessage }}
+                                    </div>
+                                @endif
+                                @if ($manualGeneratedCodes)
+                                    <div class="mt-2">
+                                        <strong>Generated code{{ count($manualGeneratedCodes) > 1 ? 's' : '' }}:</strong>
+                                        @foreach ($manualGeneratedCodes as $code)
+                                            <div class="fs-5 fw-bold">{{ implode('-', str_split($code, 3)) }}</div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead>
@@ -730,14 +886,26 @@ public function frame($x): void
                                                                                 <div class="border-bottom pb-2">
                                                                                     <div class="d-flex justify-content-between fw-bold">
                                                                                         <span>{{ $orderItem->product->name }}</span>
-                                                                                        <button wire:click="regenerate({{ $orderItem->id }})"
-                                                                                                class="btn btn-sm btn-primary">Regenerate</button>
                                                                                     </div>
                                                                                     <div class="d-flex align-items-center justify-content-between border-top border-bottom my-2 text-muted">
                                                                                         <span>CODE:</span>
                                                                                         <span class="fs-5 fw-bold">
-                                                                                            {{ implode('-', str_split($orderItem->code, 3)) }}
+                                                                                            {{ $orderItem->code ? implode('-', str_split($orderItem->code, 3)) : 'Not generated' }}
                                                                                         </span>
+                                                                                    </div>
+                                                                                    <div class="d-flex align-items-center gap-2">
+                                                                                        <button wire:click="regenerate({{ $orderItem->id }})"
+                                                                                                wire:loading.attr="disabled"
+                                                                                                wire:target="regenerate({{ $orderItem->id }})"
+                                                                                                class="btn btn-sm btn-primary">
+                                                                                            <span wire:loading wire:target="regenerate({{ $orderItem->id }})" class="spinner-border spinner-border-sm me-1"></span>
+                                                                                            {{ $orderItem->code ? 'Regenerate code' : 'Request code' }}
+                                                                                        </button>
+                                                                                        @if (isset($generationMessages[$orderItem->id]))
+                                                                                            <small class="{{ str_contains($generationMessages[$orderItem->id], 'successfully') ? 'text-success' : 'text-danger' }}">
+                                                                                                {{ $generationMessages[$orderItem->id] }}
+                                                                                            </small>
+                                                                                        @endif
                                                                                     </div>
                                                                                 </div>
                                                                             @endif
@@ -1157,7 +1325,14 @@ function exportTableToExcel() {
     if (!table) { alert('Tidak ada data.'); return; }
 
     const wb    = XLSX.utils.book_new();
-    const ws    = XLSX.utils.table_to_sheet(table);
+    // Strip thousands dots ("700.000" -> 700000) and store as numbers.
+    const rows = Array.from(table.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th, td')).map(cell => {
+            const txt = cell.innerText.trim().replace(/^(\d{1,3}(?:\.\d{3})+)$/, m => m.replace(/\./g, ''));
+            return /^\d+$/.test(txt) ? Number(txt) : txt;
+        })
+    );
+    const ws    = XLSX.utils.aoa_to_sheet(rows);
     const range = XLSX.utils.decode_range(ws['!ref']);
     const cols  = [];
 
