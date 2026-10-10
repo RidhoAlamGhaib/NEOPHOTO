@@ -72,7 +72,7 @@ new class extends Component
     public bool $doubleExpApplied  = false;
 
     // ── SPECIAL HALLOWEEN (Plaza Blok M only, Oktober 2026) ─────────────────────
-    private const HALLOWEEN_OUTLET    = 'Blok M'; // cocokin sama value di DB
+    private const HALLOWEEN_OUTLET    = 'Blok-M'; // cocokin sama value di DB (users.outlet)
     private const HALLOWEEN_HIGHANGLE = 4;
     private const HALLOWEEN_STANDAR   = [1, 2, 3];
     private const HALLOWEEN_START     = '2026-10-01';
