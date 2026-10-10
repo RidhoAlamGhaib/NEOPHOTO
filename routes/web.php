@@ -5,6 +5,7 @@ use Laravel\Fortify\Features;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\MidtransController;
 use Illuminate\Support\Facades\Auth;
 
     // Route::get('/', [Controller::class, 'index']);
@@ -29,5 +30,5 @@ Route::get('/db', function () {
     Route::get('/dashboard/export-orders', [CustomerController::class, 'export'])
     ->name('orders.export')
     ->middleware('auth');
-
+    Route::post('/webhooks/midtrans', [MidtransController::class, 'notify']);
 require __DIR__.'/settings.php';

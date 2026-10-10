@@ -35,6 +35,13 @@ return [
         ],
     ],
 
+    'midtrans' => [
+        'server_key' => env('MIDTRANS_SERVER_KEY'),
+        'client_key' => env('MIDTRANS_CLIENT_KEY'),
+        'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
+        'ca_bundle' => env('MIDTRANS_CA_BUNDLE'),
+    ],
+
     'google_sheets' => [
         'spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
         'range' => env('GOOGLE_SHEETS_RANGE', 'Transactions!A:J'),

@@ -37,6 +37,15 @@ new class extends Component
     public bool $isProcessing = false;
     public bool $showReceipt = false;
     public bool $paymentFailed = false;
+    public int $generationServerIndex = 0;
+    public ?int $generationOrderId = null;
+
+    private const GENERATION_SERVERS = [
+        'http://sohomain.neophotoindonesia.my.id/generate',
+        'http://api.neophotoindonesia.my.id/generate',
+        'http://MainServer.neophotoindonesia.my.id/generate',
+        'http://backup2.neophotoindonesia.my.id/generate',
+    ];
 
     private const HOLIDAY_TEST_MODE = false;
 
@@ -406,18 +415,45 @@ new class extends Component
     {
         $this->isProcessing = true;
         $this->paymentFailed = false;
+        $this->generationServerIndex = 0;
+        $this->generationOrderId = (int) $orderId;
 
         // Pastiin diskon MERDEKA fresh sebelum disimpen ke order
         $this->recomputeMerdekaDiscount();
         $this->recomputePaylessDiscount();
 
-        if (! $this->puppet($orderId)) {
+        $this->dispatch('generation-next-server');
+    }
+
+    public function continueGeneration()
+    {
+        if (!$this->isProcessing || !$this->generationOrderId) {
+            return;
+        }
+
+        $server = self::GENERATION_SERVERS[$this->generationServerIndex] ?? null;
+        if (!$server) {
             $this->isProcessing = false;
             $this->paymentFailed = true;
             $this->addError('payment', 'Kode transaksi tidak dapat dibuat sekarang. Coba lagi sebentar lagi.');
             return;
         }
 
+        if (!$this->generateOnServer($this->generationOrderId, $server)) {
+            $this->generationServerIndex++;
+
+            if ($this->generationServerIndex >= count(self::GENERATION_SERVERS)) {
+                $this->isProcessing = false;
+                $this->paymentFailed = true;
+                $this->addError('payment', 'Kode transaksi tidak dapat dibuat sekarang. Coba lagi sebentar lagi.');
+            } else {
+                $this->dispatch('generation-next-server');
+            }
+
+            return;
+        }
+
+        $orderId = $this->generationOrderId;
         $customer = customer::create($this->only(['name', 'telp', 'email', 'instagram']));
 
         Order::find($orderId)->update([
@@ -437,11 +473,31 @@ new class extends Component
     #[On('regenerate')]
     public function puppet($orderId)
     {
-        $cartItems = OrderItem::where('order_id', $orderId)->get();
-        $orders    = [];
-        $OrderItem = OrderItem::where('order_id', $orderId)->first();
+        foreach (self::GENERATION_SERVERS as $server) {
+            if ($this->generateOnServer($orderId, $server)) {
+                return true;
+            }
+        }
 
-        foreach ($cartItems as $item) {
+        return false;
+    }
+
+    private function generateOnServer($orderId, string $server): bool
+    {
+        $cartItems = OrderItem::where('order_id', $orderId)->get();
+        $pendingItems = $cartItems->filter(fn($item) => empty($item->code))->values();
+        $orders    = [];
+        $firstItem = $cartItems->first();
+
+        if (!$firstItem || $firstItem->printType == 111) {
+            return false;
+        }
+
+        if ($pendingItems->isEmpty()) {
+            return true;
+        }
+
+        foreach ($pendingItems as $item) {
             $orders[] = [
                 'OrderId' => $item->id,
                 'type'    => $item->printType,
@@ -452,68 +508,43 @@ new class extends Component
             ];
         }
 
-        $servers = [
-            'http://MainServer.neophotoindonesia.my.id/generate',
-            'http://api.neophotoindonesia.my.id/generate',
-            'https://blokmhighmerah.neophotoindonesia.my.id/generate',
-            'http://backup2.neophotoindonesia.my.id/generate',
-        ];
-
-        $maxRetry = 1;
-        $data     = [];
-        $generated = false;
-        
-        if($OrderItem->printType == 111){
-            foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty("000000000")) {
-                $item->code = "000000000";
-                $item->save();
-            }
-        }}else{
-        foreach ($servers as $server) {
-            $attempt = 0;
-
-            do {
-                $attempt++;
-
-                try {
-                    $res = Http::connectTimeout(10)
-                        ->timeout(10)
-                        ->post($server, ['orders' => $orders]);
-                } catch (\Exception $e) {
-                    continue;
-                }
-
-                if (!$res->successful()) {
-                    continue;
-                }
-
-                $responseData = $res->json();
-                $data = is_array($responseData) && array_is_list($responseData)
-                    ? $responseData
-                    : [$responseData];
-                $valid = collect($data)->filter(
-                    fn($item) => is_array($item) && !empty($item['kupon'])
-                )->count();
-
-                if ($valid > 0) {
-                    $generated = true;
-                    break 2;
-                }
-            } while ($attempt < $maxRetry);
+        try {
+            $res = Http::connectTimeout(10)
+                ->timeout(max(90, $pendingItems->count() * 90))
+                ->post($server, ['orders' => $orders]);
+        } catch (\Exception $e) {
+            return false;
         }
 
+        if (!$res->successful()) {
+            return false;
+        }
+
+        $responseData = $res->json();
+        $data = is_array($responseData) && array_is_list($responseData)
+            ? $responseData
+            : [$responseData];
+        $generatedIds = [];
         foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty($result['kupon'])) {
+            if (!is_array($result) || empty($result['kupon'])) {
+                continue;
+            }
+
+            $item = $pendingItems->firstWhere('id', $result['idx'] ?? null);
+            if ($item) {
                 $item->code = $result['kupon'];
                 $item->save();
+                $generatedIds[] = (int) $item->id;
             }
         }
 
-        return $generated;
-    }}
+        return $pendingItems->every(fn($item) => in_array((int) $item->id, $generatedIds, true));
+    }
+
+    public function generationServerHost(): string
+    {
+        return parse_url(self::GENERATION_SERVERS[$this->generationServerIndex] ?? '', PHP_URL_HOST) ?: 'Unknown';
+    }
 
     public function mount($id)
     {
@@ -977,19 +1008,18 @@ new class extends Component
                             <div class="modal-body">
 
                                 {{-- ── Spinner: d-none by default, shown ONLY while addcustomer runs ── --}}
-                                <div wire:loading.class.remove="d-none"
-                                     wire:target="addcustomer"
-                                     class="d-none flex-column align-items-center justify-content-center py-5 gap-3">
+                                  <div class="{{ $isProcessing ? 'd-flex' : 'd-none' }} flex-column align-items-center justify-content-center py-5 gap-3">
                                     <div class="spinner-border text-primary"
                                          style="width:3.5rem;height:3.5rem;" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
                                     <p class="fw-bold text-primary mb-0 fs-5">Memproses pembayaran...</p>
+                                    <small class="text-muted">Server: {{ $this->generationServerHost() }}</small>
                                     <small class="text-muted">Mohon jangan tutup halaman ini</small>
                                 </div>
 
                                 {{-- ── Receipt: visible by default, hidden while addcustomer runs ── --}}
-                                <div wire:loading.class="d-none" wire:target="addcustomer">
+                                <div class="{{ $isProcessing ? 'd-none' : '' }}" wire:loading.class="d-none" wire:target="addcustomer">
                                     <div class="card p-4">
                                         <h3 class="fw-bold mb-3">Receipt</h3>
 
@@ -1167,3 +1197,11 @@ new class extends Component
         </div>{{-- /.container-fluid --}}
     </form>
 </div>
+
+@script
+<script>
+    $wire.on('generation-next-server', () => {
+        window.setTimeout(() => $wire.continueGeneration(), 100);
+    });
+</script>
+@endscript

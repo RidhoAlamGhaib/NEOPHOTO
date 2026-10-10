@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
+class ComposerStaticInit3c79e040a3570288a4004f205416801a
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -106,6 +106,7 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
             'SweetAlert2\\Laravel\\' => 20,
             'Spatie\\TemporaryDirectory\\' => 26,
             'Spatie\\Browsershot\\' => 19,
+            'SnapBi\\' => 7,
         ),
         'R' =>
         array (
@@ -145,6 +146,7 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         array (
             'Monolog\\' => 8,
             'Mockery\\' => 8,
+            'Midtrans\\' => 9,
         ),
         'L' =>
         array (
@@ -387,6 +389,10 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         array (
             0 => __DIR__ . '/..' . '/spatie/browsershot/src',
         ),
+        'SnapBi\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/midtrans/midtrans-php/SnapBi',
+        ),
         'RealRashid\\SweetAlert\\' =>
         array (
             0 => __DIR__ . '/..' . '/realrashid/sweet-alert/src',
@@ -496,6 +502,10 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'Mockery\\' =>
         array (
             0 => __DIR__ . '/..' . '/mockery/mockery/library/Mockery',
+        ),
+        'Midtrans\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans',
         ),
         'Livewire\\' =>
         array (
@@ -698,6 +708,7 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'App\\Http\\Controllers\\AdditionalController' => __DIR__ . '/../..' . '/app/Http/Controllers/AdditionalController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\CustomerController' => __DIR__ . '/../..' . '/app/Http/Controllers/CustomerController.php',
+        'App\\Http\\Controllers\\MidtransController' => __DIR__ . '/../..' . '/app/Http/Controllers/MidtransController.php',
         'App\\Http\\Controllers\\OrderController' => __DIR__ . '/../..' . '/app/Http/Controllers/OrderController.php',
         'App\\Http\\Controllers\\OrderItemAddonController' => __DIR__ . '/../..' . '/app/Http/Controllers/OrderItemAddonController.php',
         'App\\Http\\Controllers\\OrderItemController' => __DIR__ . '/../..' . '/app/Http/Controllers/OrderItemController.php',
@@ -733,6 +744,7 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'App\\Models\\Order' => __DIR__ . '/../..' . '/app/Models/Order.php',
         'App\\Models\\OrderItem' => __DIR__ . '/../..' . '/app/Models/OrderItem.php',
         'App\\Models\\OrderItemAddon' => __DIR__ . '/../..' . '/app/Models/OrderItemAddon.php',
+        'App\\Models\\PassportPhotoSize' => __DIR__ . '/../..' . '/app/Models/PassportPhotoSize.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
         'App\\Models\\additional' => __DIR__ . '/../..' . '/app/Models/additional.php',
         'App\\Models\\customer' => __DIR__ . '/../..' . '/app/Models/customer.php',
@@ -749,6 +761,7 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'App\\Policies\\PromoPolicy' => __DIR__ . '/../..' . '/app/Policies/PromoPolicy.php',
         'App\\Providers\\AppServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AppServiceProvider.php',
         'App\\Providers\\FortifyServiceProvider' => __DIR__ . '/../..' . '/app/Providers/FortifyServiceProvider.php',
+        'App\\Services\\GoogleSheetsService' => __DIR__ . '/../..' . '/app/Services/GoogleSheetsService.php',
         'Attribute' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
         'BaconQrCode\\Common\\BitArray' => __DIR__ . '/..' . '/bacon/bacon-qr-code/src/Common/BitArray.php',
         'BaconQrCode\\Common\\BitMatrix' => __DIR__ . '/..' . '/bacon/bacon-qr-code/src/Common/BitMatrix.php',
@@ -4462,6 +4475,14 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'Livewire\\WithPagination' => __DIR__ . '/..' . '/livewire/livewire/src/WithPagination.php',
         'Livewire\\WithoutUrlPagination' => __DIR__ . '/..' . '/livewire/livewire/src/WithoutUrlPagination.php',
         'Livewire\\Wrapped' => __DIR__ . '/..' . '/livewire/livewire/src/Wrapped.php',
+        'Midtrans\\ApiRequestor' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/ApiRequestor.php',
+        'Midtrans\\Config' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/Config.php',
+        'Midtrans\\CoreApi' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/CoreApi.php',
+        'Midtrans\\Notification' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/Notification.php',
+        'Midtrans\\Sanitizer' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/Sanitizer.php',
+        'Midtrans\\Snap' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/Snap.php',
+        'Midtrans\\SnapApiRequestor' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/SnapApiRequestor.php',
+        'Midtrans\\Transaction' => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans/Transaction.php',
         'Mockery\\Adapter\\Phpunit\\MockeryPHPUnitIntegration' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery/Adapter/Phpunit/MockeryPHPUnitIntegration.php',
         'Mockery\\Adapter\\Phpunit\\MockeryPHPUnitIntegrationAssertPostConditions' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery/Adapter/Phpunit/MockeryPHPUnitIntegrationAssertPostConditions.php',
         'Mockery\\Adapter\\Phpunit\\MockeryTestCase' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery/Adapter/Phpunit/MockeryTestCase.php',
@@ -7336,6 +7357,9 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
         'SebastianBergmann\\Type\\UnknownType' => __DIR__ . '/..' . '/sebastian/type/src/type/UnknownType.php',
         'SebastianBergmann\\Type\\VoidType' => __DIR__ . '/..' . '/sebastian/type/src/type/VoidType.php',
         'SebastianBergmann\\Version' => __DIR__ . '/..' . '/sebastian/version/src/Version.php',
+        'SnapBi\\SnapBi' => __DIR__ . '/..' . '/midtrans/midtrans-php/SnapBi/SnapBi.php',
+        'SnapBi\\SnapBiApiRequestor' => __DIR__ . '/..' . '/midtrans/midtrans-php/SnapBi/SnapBiApiRequestor.php',
+        'SnapBi\\SnapBiConfig' => __DIR__ . '/..' . '/midtrans/midtrans-php/SnapBi/SnapBiConfig.php',
         'Spatie\\Browsershot\\Browsershot' => __DIR__ . '/..' . '/spatie/browsershot/src/Browsershot.php',
         'Spatie\\Browsershot\\ChromiumResult' => __DIR__ . '/..' . '/spatie/browsershot/src/ChromiumResult.php',
         'Spatie\\Browsershot\\Enums\\Polling' => __DIR__ . '/..' . '/spatie/browsershot/src/Enums/Polling.php',
@@ -8614,9 +8638,9 @@ class ComposerStaticInit5dabae76089d87d40d26737a086e1af0
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit5dabae76089d87d40d26737a086e1af0::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit5dabae76089d87d40d26737a086e1af0::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit5dabae76089d87d40d26737a086e1af0::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit3c79e040a3570288a4004f205416801a::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit3c79e040a3570288a4004f205416801a::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit3c79e040a3570288a4004f205416801a::$classMap;
 
         }, null, ClassLoader::class);
     }

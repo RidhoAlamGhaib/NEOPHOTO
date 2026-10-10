@@ -359,6 +359,13 @@ function exportTableToExcel() {
     if (!table) { alert('Tidak ada data.'); return; }
 
     const wb = XLSX.utils.book_new();
+    // Strip thousands dots ("700.000" -> 700000) and store as numbers.
+    const data = Array.from(table.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th, td')).map(cell => {
+            const txt = cell.innerText.trim().replace(/^(\d{1,3}(?:\.\d{3})+)$/, m => m.replace(/\./g, ''));
+            return /^\d+$/.test(txt) ? Number(txt) : txt;
+        })
+    );
     const ws = XLSX.utils.table_to_sheet(table);
 
     // Auto column width
@@ -425,6 +432,21 @@ function sendToGoogleSheets() {
         btn.disabled = false;
         alert('Gagal kirim ke Google Sheets. Cek konsol untuk detail.');
     });
+}
+function exportOrdersXlsx(e, url) {
+    e.preventDefault();
+    fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(({ rows }) => {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = rows[0].map(() => ({ wch: 18 }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+            const now = new Date();
+            const filename = `orders-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        })
+        .catch(err => { console.error(err); alert('Gagal export.'); });
 }
 function exportOrdersTableToExcel() {
     const table = document.querySelector('.table.table-hover.align-middle');
