@@ -228,9 +228,25 @@ new class extends Component
         font-weight: 900;
         color: #fff;
     }
+    /* ── Pemanis background: soft pastel blobs, nyebar ke seluruh halaman ── */
+    body {
+        background-color: #fff4f9;
+        background-image:
+            radial-gradient(45vw 45vw at 12% 8%,  rgba(255, 154, 60, 0.10), transparent 60%),
+            radial-gradient(42vw 42vw at 88% 16%, rgba(255, 110, 199, 0.12), transparent 60%),
+            radial-gradient(48vw 48vw at 80% 92%, rgba(106, 13, 173, 0.07), transparent 60%),
+            radial-gradient(40vw 40vw at 18% 94%, rgba(255, 179, 186, 0.16), transparent 60%);
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }
+
+    .cart-sugar-bg {
+        background: transparent;
+        min-height: 100vh;
+    }
 </style>
 
-<container class="d-flex flex-column text-center align-item-center justify-content-center " style="background-color:#fff4f9;">
+<container class="cart-sugar-bg d-flex flex-column text-center align-item-center justify-content-center " style="background:transparent;">
     @if ($orderItems)
     <div class="d-flex justify-content-end" style="position:sticky;top:0;">
         <a href="/checkout/{{$order->id}}"  class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4 " style="background-color: #ffb3ba;border-color: #d6eadf;width:10rem;z-index:100">NEXT <i class="fa-solid text-white fa-right-long"></i></a>
