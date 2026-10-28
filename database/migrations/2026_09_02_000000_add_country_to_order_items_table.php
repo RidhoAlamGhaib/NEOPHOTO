@@ -8,6 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Guard: the column already exists on databases imported from the
+        // phpMyAdmin dump, so only add it where it is missing.
+        if (Schema::hasColumn('order_items', 'country')) {
+            return;
+        }
+
         Schema::table('order_items', function (Blueprint $table) {
             // Cuma dipake kalo item-nya produk ID/VISA. Nama negara,
             // cocok sama kolom `country` di tabel passport_photo_sizes.
@@ -17,6 +23,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('order_items', 'country')) {
+            return;
+        }
+
         Schema::table('order_items', function (Blueprint $table) {
             $table->dropColumn('country');
         });

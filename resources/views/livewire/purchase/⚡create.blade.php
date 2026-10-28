@@ -8,6 +8,7 @@ use App\Models\OrderItemAddon;
 use SweetAlert2\Laravel\Traits\WithSweetAlert;
 use SweetAlert2\Laravel\Swal;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Validate;
 use Carbon\Carbon;
@@ -32,10 +33,9 @@ new class extends Component
     public $instagram = '';
     public $appr = '';
     public $paid = '';
-    public $coupon = '';
+    public $coupon = null;
     public $couponchck = '';
     public bool $isProcessing = false;
-    public bool $showReceipt = false;
     public bool $paymentFailed = false;
 
     private const HOLIDAY_TEST_MODE = false;
@@ -411,6 +411,8 @@ new class extends Component
         $this->recomputeMerdekaDiscount();
         $this->recomputePaylessDiscount();
 
+        // Abort the payment if no transaction codes could be generated.
+        // Never mark an order as paid without a code — the cashier can retry.
         if (! $this->puppet($orderId)) {
             $this->isProcessing = false;
             $this->paymentFailed = true;
@@ -424,14 +426,13 @@ new class extends Component
             'customer_id' => $customer->id,
             'status'      => 'paid',
             'apprcode'    => $this->appr,
-            'total'       => $this->total - ($this->coupon->diskon ?? 0),
+            'total'       => max(0, $this->total - ($this->coupon->diskon ?? 0)),
             'promo_id'    => ($this->coupon->id ?? 0),
             'outlet'      => auth()->user()->outlet,
         ]);
 
+        $this->isProcessing = false;
         $this->refreshData();
-
-        return redirect()->route('checkout', ['id' => $orderId, 'showReceipt' => 1, 'sync' => 1]);
     }
 
     #[On('regenerate')]
@@ -453,71 +454,103 @@ new class extends Component
         }
 
         $servers = [
-            'http://api.neophotoindonesia.my.id/generate',
-            'https://blokmhighmerah.neophotoindonesia.my.id/generate',
+            'http://MainServer.neophotoindonesia.my.id/generate',
+            'http://blokmhighmerah.neophotoindonesia.my.id/generate',
             'http://backup2.neophotoindonesia.my.id/generate',
         ];
 
         $maxRetry = 1;
         $data     = [];
-        $generated = false;
         
-        if($OrderItem->printType == 111){
-            foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty("000000000")) {
+        $generated = false;
+
+        // printType 111 → assign a fixed placeholder code, skip the generator.
+        if ($OrderItem && (int) $OrderItem->printType === 111) {
+            foreach ($cartItems as $item) {
                 $item->code = "000000000";
                 $item->save();
             }
-        }}else{
+            return true;
+        }
+
         foreach ($servers as $server) {
             $attempt = 0;
 
             do {
                 $attempt++;
 
+                Log::info('puppet(): connecting to generate server', [
+                    'server'  => $server,
+                    'attempt' => $attempt,
+                ]);
+
                 try {
-                    $res = Http::connectTimeout(10)
-                        ->timeout(10)
-                        ->post($server, ['orders' => $orders]);
+                    $res = Http::connectTimeout(10)->timeout(90)->post($server, ['orders' => $orders]);
                 } catch (\Exception $e) {
+                    Log::warning('puppet(): generate server unreachable', [
+                        'server'  => $server,
+                        'attempt' => $attempt,
+                        'error'   => $e->getMessage(),
+                    ]);
+                    sleep(2);
                     continue;
                 }
 
                 if (!$res->successful()) {
+                    Log::warning('puppet(): generate server returned non-2xx', [
+                        'server' => $server,
+                        'status' => $res->status(),
+                        'body'   => mb_substr($res->body(), 0, 500),
+                    ]);
+                    sleep(2);
                     continue;
                 }
 
-                $responseData = $res->json();
-                $data = is_array($responseData) && array_is_list($responseData)
-                    ? $responseData
-                    : [$responseData];
-                $valid = collect($data)->filter(
-                    fn($item) => is_array($item) && !empty($item['kupon'])
-                )->count();
+                $data  = $res->json();
+                $data  = is_array($data) ? $data : [];
+                $valid = collect($data)->filter(fn($item) => is_array($item) && !empty($item['kupon']))->count();
 
                 if ($valid > 0) {
+                    Log::info('puppet(): codes generated successfully', [
+                        'server' => $server,
+                        'count'  => $valid,
+                    ]);
                     $generated = true;
                     break 2;
                 }
+
+                Log::warning('puppet(): generate server responded without any kupon', [
+                    'server'   => $server,
+                    'response' => $data,
+                ]);
+
+                sleep(2);
             } while ($attempt < $maxRetry);
         }
 
         foreach ($data as $result) {
+            if (!is_array($result) || empty($result['idx']) || empty($result['kupon'])) {
+                continue;
+            }
             $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty($result['kupon'])) {
+            if ($item) {
                 $item->code = $result['kupon'];
                 $item->save();
             }
         }
 
+        if (!$generated) {
+            Log::error('puppet(): code generation failed on all servers', [
+                'order_id' => $orderId,
+                'servers'  => $servers,
+            ]);
+        }
+
         return $generated;
-    }}
+    }
 
     public function mount($id)
     {
-        $this->showReceipt = request()->boolean('showReceipt');
-
         if (auth()->user()->outlet == "superadmin") {
             $this->name = "Test";
             $this->appr = "123123";
@@ -575,7 +608,7 @@ new class extends Component
         }
 
         // Also reset any in-memory promo/coupon state from a prior session
-        $this->coupon         = '';
+        $this->coupon         = null;
         $this->couponchck     = '';
         $this->holidayApplied  = false;
         $this->merdekaApplied  = false;
@@ -686,15 +719,9 @@ new class extends Component
             return;
         }
 
-        if ($addon->id == 6 || $addon->id == 7) {
-            if ($orderItem->product_id == 1) {
-                $orderItem->printCount -= 2;
-            } else {
-                $orderItem->printCount -= 1;
-            }
+        if (in_array($addon->addon_id, [6, 7])) {
+            $orderItem->printCount -= ($orderItem->product_id == 1) ? 2 : 1;
             $orderItem->save();
-            $addon->qty -= 1;
-            $addon->save();
         }
 
         if ($addon->qty > 1) {
@@ -945,15 +972,14 @@ new class extends Component
                 </div>
 
                 {{-- Payment Modal --}}
-                 <div class="modal fade {{ $showReceipt ? 'show' : '' }}"
+                <div class="modal fade"
                      wire:ignore.self
                      id="staticBackdrop"
                      data-bs-backdrop="static"
                      data-bs-keyboard="false"
                      tabindex="-1"
                      aria-labelledby="staticBackdropLabel"
-                     aria-hidden="{{ $showReceipt ? 'false' : 'true' }}"
-                     @if ($showReceipt) style="display:block;" @endif>
+                     aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
 
@@ -992,9 +1018,19 @@ new class extends Component
                                     <div class="card p-4">
                                         <h3 class="fw-bold mb-3">Receipt</h3>
 
-                                        @error('payment')
-                                            <div class="alert alert-danger">{{ $message }}</div>
-                                        @enderror
+                                        @if ($paymentFailed)
+                                            <div class="alert alert-danger">
+                                                <div>{{ $errors->first('payment') ?: 'Pembayaran gagal. Silakan coba lagi.' }}</div>
+                                                <button type="button"
+                                                        class="btn btn-danger btn-sm mt-2"
+                                                        wire:click="addcustomer({{ $order->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="addcustomer">
+                                                    <span wire:loading wire:target="addcustomer" class="spinner-border spinner-border-sm me-1"></span>
+                                                    Coba Lagi
+                                                </button>
+                                            </div>
+                                        @endif
 
                                         {{-- HOLIDAY banner inside modal too --}}
                                         @if ($holidayApplied)
@@ -1085,20 +1121,7 @@ new class extends Component
                                         @endforeach
 
                                         {{-- Discount + Total (unpaid state) --}}
-                                        @if ($paymentFailed)
-                                            <div class="d-flex justify-content-end gap-2 mt-3">
-                                                <a href="{{ route('home') }}" class="btn btn-secondary">Cancel</a>
-                                                <button type="button"
-                                                        class="btn btn-primary"
-                                                        wire:click="addcustomer({{ $order->id }})"
-                                                        wire:loading.attr="disabled"
-                                                        wire:target="addcustomer">
-                                                    <span wire:loading wire:target="addcustomer" class="spinner-border spinner-border-sm me-1"></span>
-                                                    Retry
-                                                </button>
-                                            </div>
-
-                                        @elseif (!$this->appr)
+                                        @if (!$this->appr)
                                             @if ($this->coupon)
                                                 <div class="d-flex justify-content-between ms-3 text-muted">
                                                     <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($paylessApplied ? ' (PAYLESS)' : ''))) }}:</span>
