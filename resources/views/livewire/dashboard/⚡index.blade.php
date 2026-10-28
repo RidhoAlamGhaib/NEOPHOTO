@@ -534,7 +534,6 @@ public function frame($x): void
         $servers  = [
             'http://api.neophotoindonesia.my.id/generate',
             'http://backup1.neophotoindonesia.my.id/generate',
-            'http://backup2.neophotoindonesia.my.id/generate',
         ];
         $maxRetry = 1;
         $data     = [];

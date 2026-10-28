@@ -515,7 +515,6 @@ new class extends Component
         $servers = [
             'http://MainServer.neophotoindonesia.my.id/generate',
             'http://blokmhighmerah.neophotoindonesia.my.id/generate',
-            'http://backup2.neophotoindonesia.my.id/generate',
         ];
 
         $maxRetry = 1;
