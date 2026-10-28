@@ -431,29 +431,41 @@ new class extends Component
 
         $this->refreshData();
 
-        return redirect()->route('checkout', [
-            'id' => $orderId,
-            'showReceipt' => 1,
-            'sync' => 1,
-        ]);
+        // return redirect()->route('checkout', [
+        //     'id' => $orderId,
+        //     'showReceipt' => 1,
+        //     'sync' => 1,
+        // ]);
     }
 
     #[On('regenerate')]
-    public function puppet($orderId)
+    public function puppet(int $orderId): bool
     {
         $cartItems = OrderItem::where('order_id', $orderId)->get();
-        $orders    = [];
-        $OrderItem = OrderItem::where('order_id', $orderId)->first();
+        if ($cartItems->isEmpty()) {
+            return false;
+        }
 
+        $orders = [];
         foreach ($cartItems as $item) {
+            if ((int) $item->printType === 111) {
+                $item->code = '000000000';
+                $item->save();
+                continue;
+            }
+
             $orders[] = [
                 'OrderId' => $item->id,
                 'type'    => $item->printType,
-                'count' => ($item->product_id == 11 || $item->product_id == 12)
-    ? $item->printCount + 1
-    : $item->printCount,
+                'count'   => in_array((int) $item->product_id, [11, 12], true)
+                    ? $item->printCount + 1
+                    : $item->printCount,
                 'kode'    => 'FREE',
             ];
+        }
+
+        if ($orders === []) {
+            return true;
         }
 
         $servers = [
@@ -463,61 +475,60 @@ new class extends Component
             'http://backup2.neophotoindonesia.my.id/generate',
         ];
 
-        $maxRetry = 1;
-        $data     = [];
-        $generated = false;
-        
-        if($OrderItem->printType == 111){
-            foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty("000000000")) {
-                $item->code = "000000000";
-                $item->save();
-            }
-        }}else{
-        foreach ($servers as $server) {
-            $attempt = 0;
+        $generatedCodes = [];
+        foreach ($orders as $order) {
+            $code = null;
 
-            do {
-                $attempt++;
-
+            foreach ($servers as $server) {
                 try {
-                    $res = Http::connectTimeout(10)
+                    $response = Http::connectTimeout(10)
                         ->timeout(10)
-                        ->post($server, ['orders' => $orders]);
+                        ->post($server, ['orders' => [$order]]);
                 } catch (\Exception $e) {
+                    report($e);
                     continue;
                 }
 
-                if (!$res->successful()) {
+                if (!$response->successful()) {
                     continue;
                 }
 
-                $responseData = $res->json();
-                $data = is_array($responseData) && array_is_list($responseData)
+                $responseData = $response->json();
+                $results = is_array($responseData) && array_is_list($responseData)
                     ? $responseData
                     : [$responseData];
-                $valid = collect($data)->filter(
-                    fn($item) => is_array($item) && !empty($item['kupon'])
-                )->count();
 
-                if ($valid > 0) {
-                    $generated = true;
-                    break 2;
+                foreach ($results as $result) {
+                    if (is_array($result) && !empty($result['kupon'])) {
+                        $code = (string) $result['kupon'];
+                        break;
+                    }
                 }
-            } while ($attempt < $maxRetry);
-        }
 
-        foreach ($data as $result) {
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item && !empty($result['kupon'])) {
-                $item->code = $result['kupon'];
-                $item->save();
+                if ($code !== null) {
+                    break;
+                }
             }
+
+            if ($code === null) {
+                return false;
+            }
+
+            $generatedCodes[$order['OrderId']] = $code;
         }
 
-        return $generated;
-    }}
+        if (count($generatedCodes) !== count($orders)) {
+            return false;
+        }
+
+        foreach ($generatedCodes as $itemId => $code) {
+            $item = $cartItems->firstWhere('id', $itemId);
+            $item->code = $code;
+            $item->save();
+        }
+
+        return true;
+    }
 
     public function mount($id)
     {
