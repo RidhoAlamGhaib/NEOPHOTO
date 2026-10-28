@@ -725,7 +725,7 @@ new class extends Component
         wire:submit.prevent="addcustomer({{ $order->id }})"
     >
         <div class="d-flex justify-content-start" style="position:sticky;top:0;">
-            <a href="/" class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4"
+            <a href="/store" class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4"
                style="background-color:#ffb3ba;border-color:#d6eadf;width:10rem">
                 Back <i class="fa-solid text-white fa-left-long"></i>
             </a>
@@ -1092,7 +1092,7 @@ new class extends Component
                                         {{-- Discount + Total (unpaid state) --}}
                                         @if ($paymentFailed)
                                             <div class="d-flex justify-content-end gap-2 mt-3">
-                                                <a href="{{ route('home') }}" class="btn btn-secondary">Cancel</a>
+                                                <a href="{{ route('store') }}" class="btn btn-secondary">Cancel</a>
                                                 <button type="button"
                                                         class="btn btn-primary"
                                                         wire:click="addcustomer({{ $order->id }})"

@@ -29,9 +29,9 @@ new class extends Component
     public string $manualGenerationMessage = '';
 
     private const GENERATION_SERVERS = [
-        'http://sohomain.neophotoindonesia.my.id/generate',
-        'http://api.neophotoindonesia.my.id/generate',
         'http://MainServer.neophotoindonesia.my.id/generate',
+        'http://api.neophotoindonesia.my.id/generate',
+        'http://sohomain.neophotoindonesia.my.id/generate',
         'http://backup2.neophotoindonesia.my.id/generate',
     ];
 
