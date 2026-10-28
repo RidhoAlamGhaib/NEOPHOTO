@@ -34,7 +34,11 @@ new class extends Component
 
     public function mount()
     {
-        $this->products = Product::whereNot("type","addon")->get();
+        // Produk type 106 (B1G1) selalu paling depan di list.
+        $this->products = Product::whereNot("type", "addon")
+            ->get()
+            ->sortByDesc(fn ($p) => $p->type === '106')
+            ->values();
         $this->order = Order::latest()->first();
 
         // ambil product_id saja supaya ringan
