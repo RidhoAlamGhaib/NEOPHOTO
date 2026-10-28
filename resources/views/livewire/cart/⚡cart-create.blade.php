@@ -228,16 +228,21 @@ new class extends Component
         font-weight: 900;
         color: #fff;
     }
-    /* ── Pemanis background: soft pastel blobs, nyebar ke seluruh halaman ── */
-    body {
+    /* ── Pemanis background: soft pastel blobs. Taro di html (canvas) biar
+       nembus ke seluruh halaman — style.css udah set html bg, jadi override. ── */
+    html {
         background-color: #fff4f9;
         background-image:
-            radial-gradient(45vw 45vw at 12% 8%,  rgba(255, 154, 60, 0.10), transparent 60%),
-            radial-gradient(42vw 42vw at 88% 16%, rgba(255, 110, 199, 0.12), transparent 60%),
-            radial-gradient(48vw 48vw at 80% 92%, rgba(106, 13, 173, 0.07), transparent 60%),
-            radial-gradient(40vw 40vw at 18% 94%, rgba(255, 179, 186, 0.16), transparent 60%);
+            radial-gradient(50vw 50vw at 10% 5%,  rgba(255, 154, 60, 0.22), transparent 60%),
+            radial-gradient(45vw 45vw at 90% 15%, rgba(255, 110, 199, 0.26), transparent 60%),
+            radial-gradient(55vw 55vw at 82% 95%, rgba(106, 13, 173, 0.16), transparent 62%),
+            radial-gradient(45vw 45vw at 15% 92%, rgba(255, 179, 186, 0.32), transparent 62%);
         background-attachment: fixed;
         background-repeat: no-repeat;
+    }
+
+    body {
+        background: transparent;
     }
 
     .cart-sugar-bg {
