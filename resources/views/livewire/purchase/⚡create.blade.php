@@ -431,7 +431,11 @@ new class extends Component
 
         $this->refreshData();
 
-        return redirect()->route('checkout', ['id' => $orderId, 'showReceipt' => 1, 'sync' => 1]);
+        return redirect()->route('checkout', [
+            'id' => $orderId,
+            'showReceipt' => 1,
+            'sync' => 1,
+        ]);
     }
 
     #[On('regenerate')]
@@ -1151,7 +1155,7 @@ new class extends Component
                                                        required />
                                             </div>
                                             <div class="d-flex justify-content-end">
-                                                <a href="/" class="btn btn-primary">Finish</a>
+                                                <a href="{{ route('store') }}" class="btn btn-primary">Finish</a>
                                             </div>
                                         @endif
 
