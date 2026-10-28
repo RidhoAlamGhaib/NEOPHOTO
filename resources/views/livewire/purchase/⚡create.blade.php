@@ -812,11 +812,25 @@ new class extends Component
 ?>
 
 <div>
+    <style>
+        /* ── Pemanis background: sama kaya cart, soft pastel blobs seluruh halaman ── */
+        body {
+            background-color: #fff4f9;
+            background-image:
+                radial-gradient(45vw 45vw at 12% 8%,  rgba(255, 154, 60, 0.10), transparent 60%),
+                radial-gradient(42vw 42vw at 88% 16%, rgba(255, 110, 199, 0.12), transparent 60%),
+                radial-gradient(48vw 48vw at 80% 92%, rgba(106, 13, 173, 0.07), transparent 60%),
+                radial-gradient(40vw 40vw at 18% 94%, rgba(255, 179, 186, 0.16), transparent 60%);
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
+    </style>
+
     @include('sweetalert2::index')
 
     <form
         class="text-center text-white needs-validation"
-        style="background:#ffd5e8"
+        style="background:transparent"
         wire:submit.prevent="addcustomer({{ $order->id }})"
     >
         <div class="d-flex justify-content-start" style="position:sticky;top:0;">
@@ -827,7 +841,7 @@ new class extends Component
         </div>
 
         <div class="container-fluid d-flex justify-content-around align-items-center"
-             style="background:#ffd5e8;height:50vw;">
+             style="background:transparent;height:50vw;">
 
             {{-- Contact Information --}}
             <div class="col-6 py-5 px-5"
