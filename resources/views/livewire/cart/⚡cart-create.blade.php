@@ -21,6 +21,17 @@ new class extends Component
 
     public bool $holidayActive = false;
 
+    // ── B1G1 HALLOWEEN (product 14, type 106) ──────────────────────────────────
+    // Satu pembelian B1G1 = 2 baris order_item (2 kode): Standar 2 Lembar (101)
+    // + High Angle (104). Baris High Angle gratis (total dihitung di checkout).
+    private const B1G1_PRODUCT = 14;
+
+    /** @var array<int, array{printType:int, printCount:int}> */
+    private const B1G1_LINES = [
+        ['printType' => 101, 'printCount' => 2], // Standar 2 Lembar
+        ['printType' => 104, 'printCount' => 1], // High Angle
+    ];
+
     public function mount()
     {
         $this->products = Product::whereNot("type","addon")->get();
@@ -58,60 +69,75 @@ new class extends Component
         ->pluck('product_id')
         ->toArray();
 }
-    public function increaseProduct($productId){
+    // Bikin baris order_item buat 1 unit produk. B1G1 jadi 2 baris sekaligus.
+    private function createProductLines(int $productId): void
+    {
+        if ($productId === self::B1G1_PRODUCT) {
+            foreach (self::B1G1_LINES as $line) {
+                OrderItem::create([
+                    'order_id'   => $this->order->id,
+                    'product_id' => $productId,
+                    'printType'  => $line['printType'],
+                    'printCount' => $line['printCount'],
+                ]);
+            }
+
+            return;
+        }
+
         $type = $this->products->where('id', $productId)->first()->type;
-        if ($productId == 1) {
-                    # code...
-                     OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                    'printCount'=>2]);
-                    }else{
-                        OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                        'printCount'=>1
-                        ]);
-                        }
+
+        OrderItem::create([
+            'order_id'   => $this->order->id,
+            'product_id' => $productId,
+            'printType'  => $type,
+            'printCount' => $productId == 1 ? 2 : 1,
+        ]);
+    }
+
+    // Hapus 1 unit produk. B1G1 kehapus sepasang (2 baris) sekaligus.
+    private function removeProductUnit(int $productId): void
+    {
+        $perUnit = $productId === self::B1G1_PRODUCT ? count(self::B1G1_LINES) : 1;
+
+        $ids = OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', $productId)
+            ->orderByDesc('id')
+            ->limit($perUnit)
+            ->pluck('id');
+
+        OrderItem::whereIn('id', $ids)->delete();
+    }
+
+    public function increaseProduct($productId)
+    {
+        $this->createProductLines((int) $productId);
         $this->refreshOrderItems();
     }
-    public function decreaseProduct($productId){
-        OrderItem::where('order_id',$this->order->id)
-                ->where('product_id',$productId)->first()
-                ->delete();
+
+    public function decreaseProduct($productId)
+    {
+        $this->removeProductUnit((int) $productId);
         $this->refreshOrderItems();
     }
+
     public function toggleProduct($productId)
     {
-        $type = $this->products->where('id', $productId)->first()->type;
-        if (in_array($productId, $this->orderItems)) {
+        $productId = (int) $productId;
 
-            OrderItem::where('order_id',$this->order->id)
-                ->where('product_id',$productId)
+        if (in_array($productId, $this->orderItems)) {
+            // Cancel → hapus semua baris produk ini (semua pasangan untuk B1G1).
+            OrderItem::where('order_id', $this->order->id)
+                ->where('product_id', $productId)
                 ->delete();
 
-            $this->orderItems = array_diff($this->orderItems, [$productId]);
+            $this->orderItems = array_values(array_diff($this->orderItems, [$productId]));
 
-        } else {
-                if ($productId == 1) {
-                    # code...
-                     OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                    'printCount'=>2]);
-                    }else{
-                        OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                        'printCount'=>1
-                        ]);
-                        }
-            $this->orderItems[] = $productId;
+            return;
         }
+
+        $this->createProductLines($productId);
+        $this->refreshOrderItems();
     }
 
     };
@@ -165,6 +191,39 @@ new class extends Component
         50%  { transform: scale(1.05); box-shadow: 0 6px 20px rgba(255, 94, 142, 0.75); }
         100% { transform: scale(1);    box-shadow: 0 4px 14px rgba(255, 94, 142, 0.55); }
     }
+
+    /* ── Badge promo B1G1 Halloween: spooky orange/purple ── */
+    .promo-b1g1 {
+        background: linear-gradient(135deg, #ff7518, #6a0dad) !important;
+        border: 2px solid #fff;
+        border-radius: 14px;
+        padding: 6px 10px;
+        box-shadow: 0 4px 14px rgba(255, 117, 24, 0.55);
+        animation: promoPulse 1.6s ease-in-out infinite;
+        line-height: 1.15;
+    }
+
+    .promo-b1g1__tag {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+        margin-bottom: 2px;
+    }
+
+    .promo-b1g1__old {
+        font-size: 0.85rem;
+        color: #ffe1c4;
+        text-decoration: line-through;
+        opacity: 0.9;
+    }
+
+    .promo-b1g1__new {
+        font-size: 1.15rem;
+        font-weight: 900;
+        color: #fff;
+    }
 </style>
 
 <container class="d-flex flex-column text-center align-item-center justify-content-center " style="background-color:#fff4f9;">
@@ -192,8 +251,13 @@ new class extends Component
                 <div class="card__content">
             @if(in_array($product->id,$orderItems))
 
+            @php
+                $unitCount = collect($orderItems)->filter(fn($id) => $id == $product->id)->count();
+                // B1G1 nyimpen 2 baris per unit → tampilin jumlah unit sebenarnya.
+                if ((int) $product->id === 14) { $unitCount = intdiv($unitCount, 2); }
+            @endphp
             <div class="card__badge selected fs-4 text-white">
-                <i class="bi bi-cart-check text-white fw-bold"></i>-{{ collect($orderItems)->filter(fn($id) => $id == $product->id)->count() }}
+                <i class="bi bi-cart-check text-white fw-bold"></i>-{{ $unitCount }}
             </div>
 
             @elseif($isHolidayProduct)
@@ -201,6 +265,18 @@ new class extends Component
                 <div class="promo-holiday__tag">PROMO HOLIDAY</div>
                 <div class="promo-holiday__old">Rp {{ number_format($product->price,0,',','.') }}</div>
                 <div class="promo-holiday__new">Rp {{ number_format(40000,0,',','.') }}</div>
+            </div>
+
+            @elseif((int) $product->id === 14)
+            @php
+                // Harga "normal" = Standar 2 Lembar (1) + High Angle (4), dicoret.
+                $b1g1Old = (optional($products->firstWhere('id', 1))->price ?? 0)
+                         + (optional($products->firstWhere('id', 4))->price ?? 0);
+            @endphp
+            <div class="card__badge promo-b1g1 text-white">
+                <div class="promo-b1g1__tag">🎃 B1G1 HALLOWEEN</div>
+                <div class="promo-b1g1__old">Rp {{ number_format($b1g1Old, 0, ',', '.') }}</div>
+                <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
             </div>
 
             @else

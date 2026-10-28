@@ -81,6 +81,39 @@ new class extends Component
 
     protected $listeners = ['regenerate' => 'puppet'];
 
+    // ── B1G1: promo tidak boleh kena produk B1G1 (product 14) ──────────────────
+    // Promo cuma boleh dipakai kalau ada produk lain selain B1G1, dan diskon
+    // dibatasi maksimal senilai produk non-B1G1 tsb.
+    private function hasB1G1(): bool
+    {
+        return $this->order
+            ? $this->order->items->contains(fn($it) => (int) $it->product_id === 14)
+            : false;
+    }
+
+    private function nonB1G1Subtotal(): float
+    {
+        if (! $this->order) {
+            return 0;
+        }
+
+        return (float) $this->order->items
+            ->filter(fn($it) => (int) $it->product_id !== 14)
+            ->sum(fn($it) => (float) $it->product->price);
+    }
+
+    // Return true kalau promo HARUS diblokir (cart isinya B1G1 doang).
+    private function blockPromoForB1G1(): bool
+    {
+        if ($this->hasB1G1() && $this->nonB1G1Subtotal() <= 0) {
+            $this->addError('coupon', 'Promo tidak berlaku untuk pembelian B1G1. Tambah produk lain dulu untuk pakai promo.');
+
+            return true;
+        }
+
+        return false;
+    }
+
     public function validateCoupon()
     {
         // Block manual coupon entry if HOLIDAY / MERDEKA already applied
@@ -97,9 +130,19 @@ new class extends Component
             return;
         }
 
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
+
         $discount = App\Models\promo::where('code', $this->couponchck)->first();
         if ($discount) {
             $this->coupon = $discount;
+
+            // Kalau ada B1G1 di cart, diskon dibatasi senilai produk non-B1G1.
+            if ($this->hasB1G1()) {
+                $this->coupon->diskon = min((float) $discount->diskon, $this->nonB1G1Subtotal());
+            }
+
             session()->flash('successvc', 'voucher ditambahkan!.');
         } else {
             $this->addError('coupon', 'Voucher Tidak Ditemukan!');
@@ -139,6 +182,10 @@ new class extends Component
     // All Standar Frame items (product_id 1, 2, 3) get priced at Rp 40.000 each.
     public function applyHoliday(): void
     {
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
+
         $now = Carbon::now();
 
         if (!self::HOLIDAY_TEST_MODE) {
@@ -218,6 +265,10 @@ new class extends Component
     // jadi tetep akurat walau item ditambah belakangan.
     public function applyMerdeka(): void
     {
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
+
         if (!self::MERDEKA_TEST_MODE && !Carbon::now()->isSameDay(Carbon::parse(self::MERDEKA_DATE))) {
             $this->addError('coupon', 'Promo Merdeka hanya berlaku 17 Agustus 2026.');
             return;
@@ -306,6 +357,10 @@ new class extends Component
 
     public function applyDoubleExp(): void
     {
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
+
         if (strtolower(trim(auth()->user()->outlet ?? '')) !== strtolower(self::DOUBLEEXP_OUTLET)) {
             $this->addError('coupon', 'Promo Double Experience cuma berlaku di outlet Gandaria City.');
             return;
@@ -356,6 +411,10 @@ new class extends Component
 
     public function applyPayless(): void
     {
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
+
         if ($this->coupon) {
             $this->addError('coupon', 'Promo tidak dapat digabungkan dengan promo lain.');
             return;
@@ -667,7 +726,15 @@ new class extends Component
 
     public function getTotalProperty()
     {
-        $productTotal = $this->order->items->sum(fn($item) => $item->product->price);
+        $productTotal = $this->order->items->sum(function ($item) {
+            // B1G1: baris High Angle (104) gratis — harga cuma dihitung sekali
+            // di baris Standar 2 Lembar (101).
+            if ((int) $item->product_id === 14 && (int) $item->printType === 104) {
+                return 0;
+            }
+
+            return $item->product->price;
+        });
 
         $addonTotal = $this->orderAddon->sum(function ($addon) {
             $product = Product::find($addon->addon_id);
@@ -1088,12 +1155,24 @@ new class extends Component
                                         @php $total = 0; @endphp
 
                                         @foreach ($order->items as $item)
+                                            @php
+                                                $isB1G1      = ((int) $item->product_id === 14);
+                                                $isB1G1Bonus = $isB1G1 && (int) $item->printType === 104;
+                                                $b1g1Label   = $isB1G1
+                                                    ? ((int) $item->printType === 104 ? ' (High Angle)' : ' (Standar 2 Lembar)')
+                                                    : '';
+                                                $linePrice   = $isB1G1Bonus ? 0 : $item->product->price;
+                                            @endphp
                                             <div class="border-bottom pb-2">
                                                 <div class="d-flex justify-content-between fw-bold">
-                                                    <span>{{ $item->product->name }}</span>
+                                                    <span>{{ $item->product->name }}{{ $b1g1Label }}</span>
                                                     @if (!$this->appr)
-                                                        <span>Rp {{ number_format($item->product->price, 0, ',', '.') }}</span>
-                                                        @php $total += $item->product->price; @endphp
+                                                        @if ($isB1G1Bonus)
+                                                            <span class="text-success">GRATIS</span>
+                                                        @else
+                                                            <span>Rp {{ number_format($linePrice, 0, ',', '.') }}</span>
+                                                        @endif
+                                                        @php $total += $linePrice; @endphp
                                                     @endif
                                                 </div>
 

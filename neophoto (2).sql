@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 28 Okt 2026 pada 17.31
+-- Waktu pembuatan: 28 Okt 2026 pada 21.11
 -- Versi server: 10.4.32-MariaDB
 -- Versi PHP: 8.2.12
 
@@ -32,7 +32,7 @@ CREATE TABLE `additionals` (
   `name` varchar(255) NOT NULL,
   `type` varchar(255) NOT NULL,
   `description` varchar(255) NOT NULL,
-  `price` varchar(255) NOT NULL,
+  `price` decimal(12,2) NOT NULL DEFAULT 0.00,
   `img` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -150,11 +150,12 @@ CREATE TABLE `migrations` (
 CREATE TABLE `orders` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `customer_id` bigint(20) UNSIGNED NOT NULL,
+  `user_id` bigint(20) UNSIGNED DEFAULT NULL,
   `status` varchar(255) NOT NULL DEFAULT 'pending',
   `order-UC` varchar(255) NOT NULL,
   `promo_id` int(11) DEFAULT NULL,
   `apprcode` varchar(255) DEFAULT NULL,
-  `total` varchar(11) DEFAULT NULL,
+  `total` decimal(12,2) DEFAULT NULL,
   `outlet` varchar(25) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -188,7 +189,7 @@ CREATE TABLE `order_item_addons` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `order_item_id` bigint(20) UNSIGNED NOT NULL,
   `addon_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `qty` varchar(255) DEFAULT NULL,
+  `qty` int(10) UNSIGNED DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -236,8 +237,8 @@ CREATE TABLE `penjualans` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `UserId` varchar(255) NOT NULL,
   `ProductId` varchar(255) NOT NULL,
-  `Jumlah` varchar(255) NOT NULL,
-  `harga` varchar(255) NOT NULL,
+  `Jumlah` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `harga` decimal(12,2) NOT NULL DEFAULT 0.00,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -253,11 +254,32 @@ CREATE TABLE `products` (
   `name` varchar(255) NOT NULL,
   `type` varchar(255) NOT NULL,
   `description` varchar(255) DEFAULT NULL,
-  `price` varchar(255) NOT NULL,
+  `price` decimal(12,2) NOT NULL DEFAULT 0.00,
   `img` varchar(255) DEFAULT NULL,
+  `Status` varchar(10) NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data untuk tabel `products`
+--
+
+INSERT INTO `products` (`id`, `name`, `type`, `description`, `price`, `img`, `Status`, `created_at`, `updated_at`) VALUES
+(1, 'Standar 2 Lembar', '101', 'For the both of us', 50000.00, '2lmbrS.png', 'active', NULL, NULL),
+(2, 'Standar 4 Foto', '103', 'Closer than ever', 45000.00, '4Foto.png', 'active', NULL, NULL),
+(3, 'Standar 6 Foto', '105', 'The more the better', 45000.00, '6foto.png', 'active', NULL, NULL),
+(4, 'High Angle', '104', 'A view from above', 60000.00, 'High-Angle.png', 'active', NULL, NULL),
+(5, 'YearBook', '104', 'School memories', 60000.00, 'Yearbook.png', 'active', NULL, NULL),
+(6, 'Extra Print Standar', 'addon', '', 15000.00, '', 'active', NULL, NULL),
+(7, 'Extra Print Special', 'addon', '', 20000.00, '', 'active', NULL, NULL),
+(8, 'keychain', 'addon', '', 5000.00, '', 'active', NULL, NULL),
+(9, 'mini album', 'addon', '', 20000.00, '', 'active', NULL, NULL),
+(10, 'Transparant Print', 'addon', '', 15000.00, '', 'active', NULL, NULL),
+(11, 'BIGROOM 4 Photos', '103', 'BigRoom 4 Photos', 89000.00, 'bigroom-4.jpeg', 'active', NULL, NULL),
+(12, 'BIGROOM 6 Photos', '105', 'BigRoom 6 Photos', 89000.00, 'bigroom-6.jpg', 'active', NULL, NULL),
+(13, 'ID / VISA', '111', 'Foto Formal di Neophoto!', 45000.00, 'IconVisa.jpeg', 'active', NULL, NULL),
+(14, 'B1G1 HALLOWEEN', '106', 'Spooky', 60000.00, 'High-Angle.png', 'active', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -270,7 +292,7 @@ CREATE TABLE `promos` (
   `order_id` bigint(20) UNSIGNED DEFAULT NULL,
   `code` varchar(11) NOT NULL,
   `nama` varchar(255) NOT NULL,
-  `diskon` varchar(255) NOT NULL,
+  `diskon` decimal(12,2) NOT NULL DEFAULT 0.00,
   `img` varchar(255) DEFAULT NULL,
   `Type` text NOT NULL DEFAULT 'flat',
   `created_at` timestamp NULL DEFAULT NULL,
@@ -374,7 +396,10 @@ ALTER TABLE `migrations`
 --
 ALTER TABLE `orders`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `orders_customer_id_foreign` (`customer_id`);
+  ADD KEY `orders_customer_id_foreign` (`customer_id`),
+  ADD KEY `orders_user_id_index` (`user_id`),
+  ADD KEY `orders_status_index` (`status`),
+  ADD KEY `orders_outlet_index` (`outlet`);
 
 --
 -- Indeks untuk tabel `order_items`
@@ -510,7 +535,7 @@ ALTER TABLE `penjualans`
 -- AUTO_INCREMENT untuk tabel `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT untuk tabel `promos`
