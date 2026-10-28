@@ -492,28 +492,50 @@ new class extends Component
 
         $this->isProcessing = false;
         $this->refreshData();
+<<<<<<< HEAD
+=======
+
+        // return redirect()->route('checkout', [
+        //     'id' => $orderId,
+        //     'showReceipt' => 1,
+        //     'sync' => 1,
+        // ]);
+>>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
     }
 
     #[On('regenerate')]
-    public function puppet($orderId)
+    public function puppet(int $orderId): bool
     {
         $cartItems = OrderItem::where('order_id', $orderId)->get();
-        $orders    = [];
-        $OrderItem = OrderItem::where('order_id', $orderId)->first();
+        if ($cartItems->isEmpty()) {
+            return false;
+        }
 
+        $orders = [];
         foreach ($cartItems as $item) {
+            if ((int) $item->printType === 111) {
+                $item->code = '000000000';
+                $item->save();
+                continue;
+            }
+
             $orders[] = [
                 'OrderId' => $item->id,
                 'type'    => $item->printType,
-                'count' => ($item->product_id == 11 || $item->product_id == 12)
-    ? $item->printCount + 1
-    : $item->printCount,
+                'count'   => in_array((int) $item->product_id, [11, 12], true)
+                    ? $item->printCount + 1
+                    : $item->printCount,
                 'kode'    => 'FREE',
             ];
         }
 
+        if ($orders === []) {
+            return true;
+        }
+
         $servers = [
             'http://MainServer.neophotoindonesia.my.id/generate',
+<<<<<<< HEAD
             'http://blokmhighmerah.neophotoindonesia.my.id/generate',
         ];
 
@@ -594,9 +616,56 @@ new class extends Component
             if ($item) {
                 $item->code = $result['kupon'];
                 $item->save();
+=======
+            'http://api.neophotoindonesia.my.id/generate',
+            'https://blokmhighmerah.neophotoindonesia.my.id/generate',
+            'http://backup2.neophotoindonesia.my.id/generate',
+        ];
+
+        $generatedCodes = [];
+        foreach ($orders as $order) {
+            $code = null;
+
+            foreach ($servers as $server) {
+                try {
+                    $response = Http::connectTimeout(10)
+                        ->timeout(10)
+                        ->post($server, ['orders' => [$order]]);
+                } catch (\Exception $e) {
+                    report($e);
+                    continue;
+                }
+
+                if (!$response->successful()) {
+                    continue;
+                }
+
+                $responseData = $response->json();
+                $results = is_array($responseData) && array_is_list($responseData)
+                    ? $responseData
+                    : [$responseData];
+
+                foreach ($results as $result) {
+                    if (is_array($result) && !empty($result['kupon'])) {
+                        $code = (string) $result['kupon'];
+                        break;
+                    }
+                }
+
+                if ($code !== null) {
+                    break;
+                }
+>>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
             }
+
+            if ($code === null) {
+                return false;
+            }
+
+            $generatedCodes[$order['OrderId']] = $code;
         }
 
+<<<<<<< HEAD
         if (!$generated) {
             Log::error('puppet(): code generation failed on all servers', [
                 'order_id' => $orderId,
@@ -605,6 +674,19 @@ new class extends Component
         }
 
         return $generated;
+=======
+        if (count($generatedCodes) !== count($orders)) {
+            return false;
+        }
+
+        foreach ($generatedCodes as $itemId => $code) {
+            $item = $cartItems->firstWhere('id', $itemId);
+            $item->code = $code;
+            $item->save();
+        }
+
+        return true;
+>>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
     }
 
     public function mount($id)
@@ -813,7 +895,7 @@ new class extends Component
         wire:submit.prevent="addcustomer({{ $order->id }})"
     >
         <div class="d-flex justify-content-start" style="position:sticky;top:0;">
-            <a href="/" class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4"
+            <a href="/store" class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4"
                style="background-color:#ffb3ba;border-color:#d6eadf;width:10rem">
                 Back <i class="fa-solid text-white fa-left-long"></i>
             </a>
@@ -1199,7 +1281,24 @@ new class extends Component
                                         @endforeach
 
                                         {{-- Discount + Total (unpaid state) --}}
+<<<<<<< HEAD
                                         @if (!$this->appr)
+=======
+                                        @if ($paymentFailed)
+                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                <a href="{{ route('store') }}" class="btn btn-secondary">Cancel</a>
+                                                <button type="button"
+                                                        class="btn btn-primary"
+                                                        wire:click="addcustomer({{ $order->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="addcustomer">
+                                                    <span wire:loading wire:target="addcustomer" class="spinner-border spinner-border-sm me-1"></span>
+                                                    Retry
+                                                </button>
+                                            </div>
+
+                                        @elseif (!$this->appr)
+>>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
                                             @if ($this->coupon)
                                                 <div class="d-flex justify-content-between ms-3 text-muted">
                                                     <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($paylessApplied ? ' (PAYLESS)' : ''))) }}:</span>
@@ -1251,7 +1350,7 @@ new class extends Component
                                                        required />
                                             </div>
                                             <div class="d-flex justify-content-end">
-                                                <a href="/" class="btn btn-primary">Finish</a>
+                                                <a href="{{ route('store') }}" class="btn btn-primary">Finish</a>
                                             </div>
                                         @endif
 

@@ -12,8 +12,6 @@ use Spatie\Browsershot\Browsershot;
 use Symfony\Component\Process\Process;
 use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 new class extends Component
 {
@@ -27,7 +25,7 @@ new class extends Component
 {
     
 }
-public function authenticate(Request $request) 
+public function authenticate()
     {
         $credentials = $this->validate([
             'name' => ['required'],
@@ -35,12 +33,9 @@ public function authenticate(Request $request)
         ]);
  
         if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-            if(str_contains(Auth::user()->outlet, 'admin')){
-                return $this->redirect('/dashboard');
-            }else{
-            return $this->redirect('/');
-        }}
+            session()->regenerate();
+            return $this->redirect(route('store'));
+        }
  
         return back()->withErrors([
             'name' => 'Akun Tidak Ditemukan!',
