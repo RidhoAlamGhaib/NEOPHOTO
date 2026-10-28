@@ -1165,7 +1165,7 @@ new class extends Component
                                                 $isB1G1      = ((int) $item->product_id === 14);
                                                 $isB1G1Bonus = $isB1G1 && (int) $item->printType === 101;
                                                 $b1g1Label   = $isB1G1
-                                                    ? ((int) $item->printType === 104 ? ' (High Angle)' : ' (Standar 2 Lembar)')
+                                                    ? ((int) $item->printType === 101 ? ' (High Angle)' : ' (Standar 2 Lembar)')
                                                     : '';
                                                 $linePrice   = $isB1G1Bonus ? 0 : $item->product->price;
                                             @endphp
