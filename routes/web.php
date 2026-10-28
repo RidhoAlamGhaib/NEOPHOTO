@@ -6,7 +6,7 @@ use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', [Controller::class, 'index']);
-Route::get('/', [ProductController::class, 'index'])->name('home');
+Route::get('/', [ProductController::class, 'view'])->name('home');
 Route::get('/index', function () {
     return view('index');
 })->name('index');

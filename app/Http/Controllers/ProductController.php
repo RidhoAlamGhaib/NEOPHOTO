@@ -59,7 +59,7 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function cashier(): View
+    public function view(): View
     {
         $order = Order::create([
             'customer_id' => 1,

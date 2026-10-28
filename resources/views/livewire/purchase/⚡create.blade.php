@@ -492,15 +492,6 @@ new class extends Component
 
         $this->isProcessing = false;
         $this->refreshData();
-<<<<<<< HEAD
-=======
-
-        // return redirect()->route('checkout', [
-        //     'id' => $orderId,
-        //     'showReceipt' => 1,
-        //     'sync' => 1,
-        // ]);
->>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
     }
 
     #[On('regenerate')]
@@ -535,108 +526,38 @@ new class extends Component
 
         $servers = [
             'http://MainServer.neophotoindonesia.my.id/generate',
-<<<<<<< HEAD
             'http://blokmhighmerah.neophotoindonesia.my.id/generate',
         ];
 
-        $maxRetry = 1;
-        $data     = [];
-        
-        $generated = false;
-
-        // printType 111 → assign a fixed placeholder code, skip the generator.
-        if ($OrderItem && (int) $OrderItem->printType === 111) {
-            foreach ($cartItems as $item) {
-                $item->code = "000000000";
-                $item->save();
-            }
-            return true;
-        }
-
-        foreach ($servers as $server) {
-            $attempt = 0;
-
-            do {
-                $attempt++;
-
-                Log::info('puppet(): connecting to generate server', [
-                    'server'  => $server,
-                    'attempt' => $attempt,
-                ]);
-
-                try {
-                    $res = Http::connectTimeout(10)->timeout(90)->post($server, ['orders' => $orders]);
-                } catch (\Exception $e) {
-                    Log::warning('puppet(): generate server unreachable', [
-                        'server'  => $server,
-                        'attempt' => $attempt,
-                        'error'   => $e->getMessage(),
-                    ]);
-                    sleep(2);
-                    continue;
-                }
-
-                if (!$res->successful()) {
-                    Log::warning('puppet(): generate server returned non-2xx', [
-                        'server' => $server,
-                        'status' => $res->status(),
-                        'body'   => mb_substr($res->body(), 0, 500),
-                    ]);
-                    sleep(2);
-                    continue;
-                }
-
-                $data  = $res->json();
-                $data  = is_array($data) ? $data : [];
-                $valid = collect($data)->filter(fn($item) => is_array($item) && !empty($item['kupon']))->count();
-
-                if ($valid > 0) {
-                    Log::info('puppet(): codes generated successfully', [
-                        'server' => $server,
-                        'count'  => $valid,
-                    ]);
-                    $generated = true;
-                    break 2;
-                }
-
-                Log::warning('puppet(): generate server responded without any kupon', [
-                    'server'   => $server,
-                    'response' => $data,
-                ]);
-
-                sleep(2);
-            } while ($attempt < $maxRetry);
-        }
-
-        foreach ($data as $result) {
-            if (!is_array($result) || empty($result['idx']) || empty($result['kupon'])) {
-                continue;
-            }
-            $item = $cartItems->where('id', $result['idx'])->first();
-            if ($item) {
-                $item->code = $result['kupon'];
-                $item->save();
-=======
-            'http://api.neophotoindonesia.my.id/generate',
-            'https://blokmhighmerah.neophotoindonesia.my.id/generate',
-            'http://backup2.neophotoindonesia.my.id/generate',
-        ];
-
+        // Per order: coba tiap server sampe dapet kupon. Log tiap gagal.
         $generatedCodes = [];
+
         foreach ($orders as $order) {
             $code = null;
 
             foreach ($servers as $server) {
+                Log::info('puppet(): connecting to generate server', [
+                    'server'   => $server,
+                    'order_id' => $order['OrderId'],
+                ]);
+
                 try {
-                    $response = Http::connectTimeout(10)
-                        ->timeout(10)
-                        ->post($server, ['orders' => [$order]]);
+                    $response = Http::connectTimeout(10)->timeout(90)->post($server, ['orders' => [$order]]);
                 } catch (\Exception $e) {
-                    report($e);
+                    Log::warning('puppet(): generate server unreachable', [
+                        'server'   => $server,
+                        'order_id' => $order['OrderId'],
+                        'error'    => $e->getMessage(),
+                    ]);
                     continue;
                 }
 
                 if (!$response->successful()) {
+                    Log::warning('puppet(): generate server returned non-2xx', [
+                        'server' => $server,
+                        'status' => $response->status(),
+                        'body'   => mb_substr($response->body(), 0, 500),
+                    ]);
                     continue;
                 }
 
@@ -653,40 +574,44 @@ new class extends Component
                 }
 
                 if ($code !== null) {
+                    Log::info('puppet(): code generated', [
+                        'server'   => $server,
+                        'order_id' => $order['OrderId'],
+                    ]);
                     break;
                 }
->>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
+
+                Log::warning('puppet(): generate server responded without kupon', [
+                    'server'   => $server,
+                    'order_id' => $order['OrderId'],
+                ]);
             }
 
             if ($code === null) {
+                Log::error('puppet(): code generation failed on all servers', [
+                    'order_id' => $order['OrderId'],
+                    'servers'  => $servers,
+                ]);
+
                 return false;
             }
 
             $generatedCodes[$order['OrderId']] = $code;
         }
 
-<<<<<<< HEAD
-        if (!$generated) {
-            Log::error('puppet(): code generation failed on all servers', [
-                'order_id' => $orderId,
-                'servers'  => $servers,
-            ]);
-        }
-
-        return $generated;
-=======
         if (count($generatedCodes) !== count($orders)) {
             return false;
         }
 
         foreach ($generatedCodes as $itemId => $code) {
             $item = $cartItems->firstWhere('id', $itemId);
-            $item->code = $code;
-            $item->save();
+            if ($item) {
+                $item->code = $code;
+                $item->save();
+            }
         }
 
         return true;
->>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
     }
 
     public function mount($id)
@@ -1281,24 +1206,7 @@ new class extends Component
                                         @endforeach
 
                                         {{-- Discount + Total (unpaid state) --}}
-<<<<<<< HEAD
                                         @if (!$this->appr)
-=======
-                                        @if ($paymentFailed)
-                                            <div class="d-flex justify-content-end gap-2 mt-3">
-                                                <a href="{{ route('store') }}" class="btn btn-secondary">Cancel</a>
-                                                <button type="button"
-                                                        class="btn btn-primary"
-                                                        wire:click="addcustomer({{ $order->id }})"
-                                                        wire:loading.attr="disabled"
-                                                        wire:target="addcustomer">
-                                                    <span wire:loading wire:target="addcustomer" class="spinner-border spinner-border-sm me-1"></span>
-                                                    Retry
-                                                </button>
-                                            </div>
-
-                                        @elseif (!$this->appr)
->>>>>>> 25c60694e0b26e50d6294b21eb7fad26f4e1aa21
                                             @if ($this->coupon)
                                                 <div class="d-flex justify-content-between ms-3 text-muted">
                                                     <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($paylessApplied ? ' (PAYLESS)' : ''))) }}:</span>
@@ -1350,7 +1258,7 @@ new class extends Component
                                                        required />
                                             </div>
                                             <div class="d-flex justify-content-end">
-                                                <a href="{{ route('store') }}" class="btn btn-primary">Finish</a>
+                                                <a href="/" class="btn btn-primary">Finish</a>
                                             </div>
                                         @endif
 
