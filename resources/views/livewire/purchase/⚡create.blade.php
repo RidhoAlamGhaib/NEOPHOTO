@@ -1163,7 +1163,7 @@ new class extends Component
                                         @foreach ($order->items as $item)
                                             @php
                                                 $isB1G1      = ((int) $item->product_id === 14);
-                                                $isB1G1Bonus = $isB1G1 && (int) $item->printType === 104;
+                                                $isB1G1Bonus = $isB1G1 && (int) $item->printType === 101;
                                                 $b1g1Label   = $isB1G1
                                                     ? ((int) $item->printType === 104 ? ' (High Angle)' : ' (Standar 2 Lembar)')
                                                     : '';
@@ -1182,7 +1182,7 @@ new class extends Component
                                                     @endif
                                                 </div>
 
-                                                @foreach ($item->addons as $addon)
+                                                {{-- @foreach ($item->addons as $addon)
                                                     <div class="d-flex justify-content-between ms-3 text-muted">
                                                         <span>+ {{ $addon->addon->name }} (x{{ $addon->qty }})</span>
                                                         @if (!$this->appr)
@@ -1190,7 +1190,7 @@ new class extends Component
                                                             @php $total += $addon->addon->price * $addon->qty; @endphp
                                                         @endif
                                                     </div>
-                                                @endforeach
+                                                @endforeach --}}
 
                                                 <div class="d-flex align-items-center justify-content-between border-bottom my-2 border-top text-muted">
                                                     <span>CODE:</span>
