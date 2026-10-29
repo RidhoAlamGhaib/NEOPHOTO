@@ -6,7 +6,7 @@ use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', [Controller::class, 'index']);
-Route::get('/store', [ProductController::class, 'view'])->name('store');
+Route::get('/store', [ProductController::class, 'view'])->name('store')->middleware('auth');
 Route::get('/', function () {
     return view('index');
 })->name('index');
