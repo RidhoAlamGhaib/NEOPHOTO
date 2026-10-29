@@ -22,15 +22,19 @@ new class extends Component
     public bool $holidayActive = false;
 
     // ── B1G1 HALLOWEEN (product 14, type 106) ──────────────────────────────────
-    // Satu pembelian B1G1 = 2 baris order_item (2 kode): Standar 2 Lembar (101)
-    // + High Angle (104). Baris High Angle gratis (total dihitung di checkout).
+    // Bayar 60K (harga product 14). Satu pembelian B1G1 = 2 baris order_item
+    // (2 kode): High Angle (104) yang dibayar + 1 produk GRATIS pilihan customer
+    // (Standar 2 Lembar / 4 Foto / 6 Foto) dari dropdown.
     private const B1G1_PRODUCT = 14;
 
-    /** @var array<int, array{printType:int, printCount:int}> */
-    private const B1G1_LINES = [
-        ['printType' => 101, 'printCount' => 2], // Standar 2 Lembar
-        ['printType' => 104, 'printCount' => 1], // High Angle
-    ];
+    private const B1G1_LINES_PER_UNIT = 2;
+
+    private const B1G1_HIGHANGLE_PRINT_TYPE = 104;
+
+    /** @var array<int, int> */
+    private const B1G1_FREE_PRODUCT_IDS = [1, 2, 3];
+
+    public int $b1g1FreeProductId = 1;
 
     public function mount()
     {
@@ -77,14 +81,23 @@ new class extends Component
     private function createProductLines(int $productId): void
     {
         if ($productId === self::B1G1_PRODUCT) {
-            foreach (self::B1G1_LINES as $line) {
-                OrderItem::create([
-                    'order_id'   => $this->order->id,
-                    'product_id' => $productId,
-                    'printType'  => $line['printType'],
-                    'printCount' => $line['printCount'],
-                ]);
-            }
+            // Baris High Angle (dibayar)
+            OrderItem::create([
+                'order_id'   => $this->order->id,
+                'product_id' => $productId,
+                'printType'  => self::B1G1_HIGHANGLE_PRINT_TYPE,
+                'printCount' => 1,
+            ]);
+
+            // Baris produk gratis sesuai pilihan dropdown
+            $freeProduct = $this->selectedB1G1FreeProduct();
+
+            OrderItem::create([
+                'order_id'   => $this->order->id,
+                'product_id' => $productId,
+                'printType'  => (int) $freeProduct->type,
+                'printCount' => (int) $freeProduct->id === 1 ? 2 : 1,
+            ]);
 
             return;
         }
@@ -102,7 +115,7 @@ new class extends Component
     // Hapus 1 unit produk. B1G1 kehapus sepasang (2 baris) sekaligus.
     private function removeProductUnit(int $productId): void
     {
-        $perUnit = $productId === self::B1G1_PRODUCT ? count(self::B1G1_LINES) : 1;
+        $perUnit = $productId === self::B1G1_PRODUCT ? self::B1G1_LINES_PER_UNIT : 1;
 
         $ids = OrderItem::where('order_id', $this->order->id)
             ->where('product_id', $productId)
@@ -111,6 +124,47 @@ new class extends Component
             ->pluck('id');
 
         OrderItem::whereIn('id', $ids)->delete();
+    }
+
+    /**
+     * Pilihan produk gratis B1G1 (Standar 2 Lembar / 4 Foto / 6 Foto) buat dropdown.
+     */
+    public function b1g1FreeProducts()
+    {
+        return $this->products->whereIn('id', self::B1G1_FREE_PRODUCT_IDS)->values();
+    }
+
+    /**
+     * Produk gratis yang lagi kepilih di dropdown. Value aneh → fallback Standar 2 Lembar.
+     */
+    private function selectedB1G1FreeProduct(): Product
+    {
+        $freeProductId = in_array($this->b1g1FreeProductId, self::B1G1_FREE_PRODUCT_IDS, true)
+            ? $this->b1g1FreeProductId
+            : self::B1G1_FREE_PRODUCT_IDS[0];
+
+        return $this->products->firstWhere('id', $freeProductId)
+            ?? Product::findOrFail($freeProductId);
+    }
+
+    /**
+     * Ringkasan produk gratis B1G1 yang udah masuk cart, mis. ['Standar 2 Lembar' => 1].
+     *
+     * @return array<string, int>
+     */
+    public function b1g1FreeSummary(): array
+    {
+        $freeNamesByType = $this->b1g1FreeProducts()->mapWithKeys(
+            fn ($product) => [(int) $product->type => $product->name]
+        );
+
+        return OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', self::B1G1_PRODUCT)
+            ->where('printType', '!=', self::B1G1_HIGHANGLE_PRINT_TYPE)
+            ->pluck('printType')
+            ->map(fn ($printType) => $freeNamesByType[(int) $printType] ?? 'Standar')
+            ->countBy()
+            ->all();
     }
 
     public function increaseProduct($productId)
@@ -294,9 +348,9 @@ new class extends Component
 
             @elseif((int) $product->id === 14)
             @php
-                // Harga "normal" = Standar 2 Lembar (1) + High Angle (4), dicoret.
-                $b1g1Old = (optional($products->firstWhere('id', 1))->price ?? 0)
-                         + (optional($products->firstWhere('id', 4))->price ?? 0);
+                // Harga "normal" = High Angle (4) + produk gratis yang dipilih, dicoret.
+                $b1g1Old = (optional($products->firstWhere('id', 4))->price ?? 0)
+                         + (optional($products->firstWhere('id', $b1g1FreeProductId))->price ?? 0);
             @endphp
             <div class="card__badge promo-b1g1 text-white">
                 <div class="promo-b1g1__tag">🎃 B1G1 HALLOWEEN</div>
@@ -328,6 +382,27 @@ new class extends Component
                     <div class="container">
 
                         <div class="row justify-content-between">
+                            @if ((int) $product->id === 14)
+                                <div class="col-12 mb-2 text-start">
+                                    <label for="b1g1-free-product" class="fw-bold fs-6 mb-1">🎁 Pilih produk GRATIS</label>
+                                    <select id="b1g1-free-product"
+                                            wire:model.live="b1g1FreeProductId"
+                                            class="form-select fw-bold">
+                                        @foreach ($this->b1g1FreeProducts() as $freeProduct)
+                                            <option value="{{ $freeProduct->id }}">{{ $freeProduct->name }}</option>
+                                        @endforeach
+                                    </select>
+
+                                    @if (in_array($product->id, $orderItems))
+                                        <div class="small mt-1">
+                                            Gratis di cart:
+                                            @foreach ($this->b1g1FreeSummary() as $freeName => $freeQty)
+                                                <span class="badge bg-success">{{ $freeName }} ×{{ $freeQty }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                             <div class="col-12">
 
                     <button wire:click="toggleProduct({{ $product->id }})" class="card__button active mb-2 rounded btn fw-bold fs-4 w-100"  style="background-color: #ffb3ba; color: #fff4f9;">

@@ -71,13 +71,27 @@ new class extends Component
     public bool $doubleExpEligible = false;
     public bool $doubleExpApplied  = false;
 
-    // ── PAYLESS PRINT MORE (all outlet) ─────────────────────────────────────────
-    private const PAYLESS_HIGHANGLE     = 4;
-    private const PAYLESS_EXTRA_ADDON   = 7;
-    private const PAYLESS_DISCOUNT_UNIT = 5000;
+    // ── SPECIAL HALLOWEEN (Plaza Blok M only, Oktober 2026) ─────────────────────
+    private const HALLOWEEN_OUTLET    = 'Blok-M'; // cocokin sama value di DB (users.outlet)
+    private const HALLOWEEN_HIGHANGLE = 4;
+    private const HALLOWEEN_STANDAR   = [1, 2, 3];
+    private const HALLOWEEN_START     = '2026-10-01';
+    private const HALLOWEEN_END       = '2026-10-31';
+    private const HALLOWEEN_DISCOUNT  = 25000;
 
-    public bool $paylessEligible = false;
-    public bool $paylessApplied  = false;
+    public bool $halloweenEligible = false;
+    public bool $halloweenApplied  = false;
+
+    // ── HIGH ANGLE BUNDLING (all outlet, s/d 31 Des 2026) ───────────────────────
+    private const HIGHANGLE_BUNDLE_HIGHANGLE   = 4; // item High Angle
+    private const HIGHANGLE_BUNDLE_STANDAR     = 1; // item Standar 2 Lembar
+    private const HIGHANGLE_BUNDLE_EXTRA_PRINT = 6; // addon Extra Print Standar
+    private const HIGHANGLE_BUNDLE_KEYCHAIN    = 8; // addon keychain
+    private const HIGHANGLE_BUNDLE_DEADLINE    = '2026-12-31';
+    private const HIGHANGLE_BUNDLE_DISCOUNT    = 25000;
+
+    public bool $highAngleBundleEligible = false;
+    public bool $highAngleBundleApplied  = false;
 
     protected $listeners = ['regenerate' => 'puppet'];
 
@@ -100,6 +114,21 @@ new class extends Component
         return (float) $this->order->items
             ->filter(fn($it) => (int) $it->product_id !== 14)
             ->sum(fn($it) => (float) $it->product->price);
+    }
+
+    // B1G1 = 2 baris product 14: High Angle (printType 104) yang dibayar 60K,
+    // + 1 baris produk GRATIS pilihan customer (Standar 2 Lembar/4 Foto/6 Foto).
+    public function isB1G1FreeLine($item): bool
+    {
+        return (int) $item->product_id === 14 && (int) $item->printType !== 104;
+    }
+
+    // Nama produk gratis B1G1 dari printType barisnya (101/103/105).
+    public function b1g1FreeProductName(int $printType): string
+    {
+        return Product::whereIn('id', [1, 2, 3])
+            ->where('type', (string) $printType)
+            ->value('name') ?? 'Standar';
     }
 
     // Return true kalau promo HARUS diblokir (cart isinya B1G1 doang).
@@ -125,7 +154,7 @@ new class extends Component
             $this->addError('coupon', 'Promo Merdeka sudah aktif, tidak bisa digabung dengan promo lain.');
             return;
         }
-        if ($this->doubleExpApplied || $this->paylessApplied) {
+        if ($this->doubleExpApplied || $this->halloweenApplied || $this->highAngleBundleApplied) {
             $this->addError('coupon', 'Promo sedang aktif, tidak bisa digabung dengan promo lain.');
             return;
         }
@@ -291,7 +320,6 @@ new class extends Component
         $this->merdekaApplied  = true;
 
         $this->recomputeMerdekaDiscount();
-        $this->recomputePaylessDiscount();
 
         session()->flash('successvc', '🎉 Promo Merdeka diterapkan!');
         $this->refreshData();
@@ -401,16 +429,43 @@ new class extends Component
         $this->refreshData();
     }
 
-    // ── PAYLESS PRINT MORE ───────────────────────────────────────────────────────
-    private function checkPaylessEligibility(): void
+    // ── SPECIAL HALLOWEEN (Plaza Blok M only) ──────────────────────────────────
+    private function checkHalloweenEligibility(): void
     {
-        $this->paylessEligible = $this->order
-            ? $this->order->items->contains(fn($it) => (int) $it->product_id === self::PAYLESS_HIGHANGLE)
+        $isOutlet = strtolower(trim(auth()->user()->outlet ?? '')) === strtolower(self::HALLOWEEN_OUTLET);
+        $isPeriod = $this->isHalloweenPeriod();
+
+        $hasHighAngle = $this->order
+            ? $this->order->items->contains(fn($it) => (int) $it->product_id === self::HALLOWEEN_HIGHANGLE)
             : false;
+
+        $hasStandar = $this->order
+            ? $this->order->items->contains(fn($it) => in_array((int) $it->product_id, self::HALLOWEEN_STANDAR))
+            : false;
+
+        $this->halloweenEligible = $isOutlet && $isPeriod && $hasHighAngle && $hasStandar;
     }
 
-    public function applyPayless(): void
+    private function isHalloweenPeriod(): bool
     {
+        return Carbon::now()->between(
+            Carbon::parse(self::HALLOWEEN_START)->startOfDay(),
+            Carbon::parse(self::HALLOWEEN_END)->endOfDay(),
+        );
+    }
+
+    public function applyHalloween(): void
+    {
+        if (strtolower(trim(auth()->user()->outlet ?? '')) !== strtolower(self::HALLOWEEN_OUTLET)) {
+            $this->addError('coupon', 'Promo Special Halloween cuma berlaku di outlet Plaza Blok M.');
+            return;
+        }
+
+        if (!$this->isHalloweenPeriod()) {
+            $this->addError('coupon', 'Promo Special Halloween hanya berlaku sepanjang Oktober 2026.');
+            return;
+        }
+
         if ($this->blockPromoForB1G1()) {
             return;
         }
@@ -420,45 +475,102 @@ new class extends Component
             return;
         }
 
-        $hasHighAngle = $this->order->items->contains(fn($it) => (int) $it->product_id === self::PAYLESS_HIGHANGLE);
-        if (!$hasHighAngle) {
-            $this->addError('coupon', 'Promo ini wajib ada minimal 1 High Angle di order.');
+        $hasHighAngle = $this->order->items->contains(fn($it) => (int) $it->product_id === self::HALLOWEEN_HIGHANGLE);
+        $hasStandar   = $this->order->items->contains(fn($it) => in_array((int) $it->product_id, self::HALLOWEEN_STANDAR));
+        if (!$hasHighAngle || !$hasStandar) {
+            $this->addError('coupon', 'Wajib beli 1 High Angle + 1 Standar bareng buat promo ini.');
             return;
         }
 
-        $promo = \App\Models\promo::where('code', 'PAYLESS')->first();
+        $promo = \App\Models\promo::where('code', 'HALLOWEEN')->first();
         if (!$promo) {
-            $this->addError('coupon', 'Promo Payless belum dikonfigurasi di sistem.');
+            $this->addError('coupon', 'Promo Special Halloween belum dikonfigurasi di sistem.');
             return;
         }
 
-        $promo->diskon        = 0; // dihitung ulang di bawah
-        $this->coupon          = $promo;
-        $this->paylessApplied  = true;
+        $promo->diskon          = self::HALLOWEEN_DISCOUNT;
+        $this->coupon           = $promo;
+        $this->halloweenApplied = true;
 
-        $this->recomputePaylessDiscount();
-
-        session()->flash('successvc', '🎉 Promo Payless Print More diterapkan!');
+        session()->flash('successvc', '🎃 Promo Special Halloween diterapkan! Potongan Rp 25.000.');
         $this->refreshData();
     }
 
-    // Sama kayak MERDEKA: dihitung ulang tiap addon Extra Print berubah,
-    // jadi tetep akurat walau extra print ditambah/dikurang belakangan.
-    private function recomputePaylessDiscount(): void
+    // ── HIGH ANGLE BUNDLING (all outlet) ────────────────────────────────────────
+    private function checkHighAngleBundleEligibility(): void
     {
-        if (!$this->paylessApplied || !$this->coupon) {
+        $this->highAngleBundleEligible = $this->isHighAngleBundlePeriod()
+            && $this->highAngleBundleRequirementsMet();
+    }
+
+    private function isHighAngleBundlePeriod(): bool
+    {
+        return Carbon::now()->lessThanOrEqualTo(
+            Carbon::parse(self::HIGHANGLE_BUNDLE_DEADLINE)->endOfDay(),
+        );
+    }
+
+    // Wajib ada: item High Angle, item Standar 2 Lembar + Extra Print Standar-nya,
+    // dan minimal 1 Keychain. Dicek dari DB biar akurat walau addon berubah belakangan.
+    private function highAngleBundleRequirementsMet(): bool
+    {
+        if (!$this->order) {
+            return false;
+        }
+
+        $items = OrderItem::where('order_id', $this->id)->get();
+
+        // 1) Item High Angle
+        $hasHighAngle = $items->contains(fn($it) => (int) $it->product_id === self::HIGHANGLE_BUNDLE_HIGHANGLE);
+
+        // 2) Item Standar 2 Lembar + Extra Print Standar (addon 6) nempel di item itu
+        $standarIds    = $items->where('product_id', self::HIGHANGLE_BUNDLE_STANDAR)->pluck('id');
+        $hasExtraPrint = $standarIds->isNotEmpty()
+            && (int) OrderItemAddon::whereIn('order_item_id', $standarIds)
+                ->where('addon_id', self::HIGHANGLE_BUNDLE_EXTRA_PRINT)
+                ->sum('qty') > 0;
+
+        // 3) Keychain (addon 8) di order manapun
+        $hasKeychain = (int) OrderItemAddon::whereIn('order_item_id', $items->pluck('id'))
+            ->where('addon_id', self::HIGHANGLE_BUNDLE_KEYCHAIN)
+            ->sum('qty') > 0;
+
+        return $hasHighAngle && $hasExtraPrint && $hasKeychain;
+    }
+
+    public function applyHighAngleBundle(): void
+    {
+        if (!$this->isHighAngleBundlePeriod()) {
+            $this->addError('coupon', 'Promo High Angle Bundling sudah berakhir (s/d 31 Desember 2026).');
             return;
         }
 
-        $highAngleIds = OrderItem::where('order_id', $this->id)
-            ->where('product_id', self::PAYLESS_HIGHANGLE)
-            ->pluck('id');
+        if ($this->blockPromoForB1G1()) {
+            return;
+        }
 
-        $printQty = (int) OrderItemAddon::whereIn('order_item_id', $highAngleIds)
-            ->where('addon_id', self::PAYLESS_EXTRA_ADDON)
-            ->sum('qty');
+        if ($this->coupon) {
+            $this->addError('coupon', 'Promo tidak dapat digabungkan dengan promo lain.');
+            return;
+        }
 
-        $this->coupon->diskon = $printQty * self::PAYLESS_DISCOUNT_UNIT;
+        if (!$this->highAngleBundleRequirementsMet()) {
+            $this->addError('coupon', 'Wajib ada High Angle + Standar 2 Lembar (plus Extra Print) + Keychain buat promo ini.');
+            return;
+        }
+
+        $promo = \App\Models\promo::where('code', 'HIGHANGLE')->first();
+        if (!$promo) {
+            $this->addError('coupon', 'Promo High Angle Bundling belum dikonfigurasi di sistem.');
+            return;
+        }
+
+        $promo->diskon                = self::HIGHANGLE_BUNDLE_DISCOUNT;
+        $this->coupon                 = $promo;
+        $this->highAngleBundleApplied = true;
+
+        session()->flash('successvc', '📸 Promo High Angle Bundling diterapkan! Potongan Rp 25.000.');
+        $this->refreshData();
     }
 
     public function addcustomer($orderId)
@@ -468,7 +580,6 @@ new class extends Component
 
         // Pastiin diskon MERDEKA fresh sebelum disimpen ke order
         $this->recomputeMerdekaDiscount();
-        $this->recomputePaylessDiscount();
 
         // Abort the payment if no transaction codes could be generated.
         // Never mark an order as paid without a code — the cashier can retry.
@@ -639,11 +750,12 @@ new class extends Component
             $this->orderItem->pluck('id')
         )->get();
 
-        // Run initial HOLIDAY + MERDEKA + promo Gandaria/Payless check
+        // Run initial HOLIDAY + MERDEKA + Double Experience + Halloween + High Angle Bundling check
         $this->checkHolidayEligibility();
         $this->checkMerdekaEligibility();
         $this->checkDoubleExpEligibility();
-        $this->checkPaylessEligibility();
+        $this->checkHalloweenEligibility();
+        $this->checkHighAngleBundleEligibility();
     }
 
     private function resetOrderAddons(): void
@@ -678,7 +790,8 @@ new class extends Component
         $this->holidayApplied  = false;
         $this->merdekaApplied  = false;
         $this->doubleExpApplied = false;
-        $this->paylessApplied   = false;
+        $this->halloweenApplied = false;
+        $this->highAngleBundleApplied = false;
     }
 
     public function addAddon($orderItemId, $addonId)
@@ -713,7 +826,7 @@ new class extends Component
         }
 
         $this->recomputeMerdekaDiscount();
-        $this->recomputePaylessDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 
@@ -733,9 +846,9 @@ new class extends Component
     public function getTotalProperty()
     {
         $productTotal = $this->order->items->sum(function ($item) {
-            // B1G1: baris High Angle (104) gratis — harga cuma dihitung sekali
-            // di baris Standar 2 Lembar (101).
-            if ((int) $item->product_id === 14 && (int) $item->printType === 104) {
+            // B1G1: baris produk gratis = 0, harga 60K cuma dihitung sekali
+            // di baris High Angle (104).
+            if ($this->isB1G1FreeLine($item)) {
                 return 0;
             }
 
@@ -767,7 +880,7 @@ new class extends Component
         $addon->save();
 
         $this->recomputeMerdekaDiscount();
-        $this->recomputePaylessDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 
@@ -805,7 +918,7 @@ new class extends Component
         }
 
         $this->recomputeMerdekaDiscount();
-        $this->recomputePaylessDiscount();
+        $this->checkHighAngleBundleEligibility();
         $this->refreshData();
     }
 };
@@ -913,27 +1026,51 @@ new class extends Component
                     </div>
                 @endif
 
-                {{-- ── PAYLESS PRINT MORE ─────────────────────────────────────── --}}
-                @if ($paylessEligible && !$this->coupon && !$this->appr)
+                {{-- ── SPECIAL HALLOWEEN (Plaza Blok M only) ──────────────────── --}}
+                @if ($halloweenEligible && !$this->coupon && !$this->appr)
                     <div class="alert border-0 text-start py-2 mb-2"
-                         style="background:linear-gradient(135deg,#2a9d8f,#264653);color:#fff;border-radius:14px;">
-                        <div class="fw-bold mb-1" style="font-size:14px;">🖨️ PAYLESS PRINT MORE</div>
-                        <div style="font-size:12px;">Extra Print High Angle potong Rp 5.000/pcs</div>
+                         style="background:linear-gradient(135deg,#ff7518,#6a1b9a);color:#fff;border-radius:14px;text-shadow:0 1px 3px rgba(0,0,0,0.5);">
+                        <div class="fw-bold mb-1" style="font-size:14px;">🎃 SPECIAL HALLOWEEN</div>
+                        <div style="font-size:12px;">High Angle + Standar = potongan Rp 25.000 (khusus Plaza Blok M, Oktober 2026)</div>
                         <button type="button"
-                                wire:click="applyPayless"
+                                wire:click="applyHalloween"
                                 class="btn btn-sm fw-bold rounded-pill px-3 mt-2"
-                                style="background:#fff;color:#264653;">
-                            Klaim Payless
+                                style="background:#fff;color:#6a1b9a;text-shadow:none;">
+                            Klaim Halloween
                         </button>
                         @error('coupon')
-                            <div class="mt-2" style="font-size:12px;color:#d3f8f2;">⚠ {{ $message }}</div>
+                            <div class="mt-2" style="font-size:12px;color:#ffe0c2;">⚠ {{ $message }}</div>
                         @enderror
                     </div>
                 @endif
-                @if ($paylessApplied)
+                @if ($halloweenApplied)
                     <div class="alert border-0 text-start py-2 mb-2"
                          style="background:#d1f7c4;color:#1a7a4a;border-radius:14px;">
-                        ✅ <strong>Payless aktif</strong> — Extra Print High Angle potong Rp 5.000/pcs.
+                        ✅ <strong>Special Halloween aktif</strong> — potongan Rp 25.000.
+                    </div>
+                @endif
+
+                {{-- ── HIGH ANGLE BUNDLING ────────────────────────────────────── --}}
+                @if ($highAngleBundleEligible && !$this->coupon && !$this->appr)
+                    <div class="alert border-0 text-start py-2 mb-2"
+                         style="background:linear-gradient(135deg,#f72585,#b5179e);color:#fff;border-radius:14px;">
+                        <div class="fw-bold mb-1" style="font-size:14px;">📸 HIGH ANGLE BUNDLING</div>
+                        <div style="font-size:12px;">High Angle + Standar 2 Lembar (+ Extra Print) + Keychain = potongan Rp 25.000 (s/d 31 Des 2026)</div>
+                        <button type="button"
+                                wire:click="applyHighAngleBundle"
+                                class="btn btn-sm fw-bold rounded-pill px-3 mt-2"
+                                style="background:#fff;color:#b5179e;">
+                            Klaim High Angle Bundling
+                        </button>
+                        @error('coupon')
+                            <div class="mt-2" style="font-size:12px;color:#ffd6ef;">⚠ {{ $message }}</div>
+                        @enderror
+                    </div>
+                @endif
+                @if ($highAngleBundleApplied)
+                    <div class="alert border-0 text-start py-2 mb-2"
+                         style="background:#d1f7c4;color:#1a7a4a;border-radius:14px;">
+                        ✅ <strong>High Angle Bundling aktif</strong> — potongan Rp 25.000.
                     </div>
                 @endif
 
@@ -1146,15 +1283,22 @@ new class extends Component
                                             </div>
                                         @endif
 
-                                        @if ($paylessApplied)
+                                        @if ($halloweenApplied)
                                             <div class="alert border-0 text-start py-2 mb-3"
-                                                 style="background:linear-gradient(135deg,#2a9d8f,#264653);color:#fff;border-radius:10px;">
-                                                🖨️ <strong>Payless Print More</strong> aktif — Extra Print Rp 5.000/pcs off
+                                                 style="background:linear-gradient(135deg,#ff7518,#6a1b9a);color:#fff;border-radius:10px;">
+                                                🎃 <strong>Special Halloween</strong> aktif — potongan Rp 25.000
+                                            </div>
+                                        @endif
+
+                                        @if ($highAngleBundleApplied)
+                                            <div class="alert border-0 text-start py-2 mb-3"
+                                                 style="background:linear-gradient(135deg,#f72585,#b5179e);color:#fff;border-radius:10px;">
+                                                📸 <strong>High Angle Bundling</strong> aktif — potongan Rp 25.000
                                             </div>
                                         @endif
 
                                         {{-- Coupon input (only when not yet paid AND no promo active) --}}
-                                        @if (!$this->appr && !$holidayApplied && !$merdekaApplied && !$doubleExpApplied && !$paylessApplied)
+                                        @if (!$this->appr && !$holidayApplied && !$merdekaApplied && !$doubleExpApplied && !$halloweenApplied && !$highAngleBundleApplied)
                                             <div class="input-group mb-3">
                                                 <input type="text"
                                                        class="form-control"
@@ -1181,9 +1325,11 @@ new class extends Component
                                         @foreach ($order->items as $item)
                                             @php
                                                 $isB1G1      = ((int) $item->product_id === 14);
-                                                $isB1G1Bonus = $isB1G1 && (int) $item->printType === 101;
+                                                $isB1G1Bonus = $this->isB1G1FreeLine($item);
                                                 $b1g1Label   = $isB1G1
-                                                    ? ((int) $item->printType === 101 ? ' (High Angle)' : ' (Standar 2 Lembar)')
+                                                    ? ($isB1G1Bonus
+                                                        ? ' (Gratis: ' . $this->b1g1FreeProductName((int) $item->printType) . ')'
+                                                        : ' (High Angle)')
                                                     : '';
                                                 $linePrice   = $isB1G1Bonus ? 0 : $item->product->price;
                                             @endphp
@@ -1227,7 +1373,7 @@ new class extends Component
                                         @if (!$this->appr)
                                             @if ($this->coupon)
                                                 <div class="d-flex justify-content-between ms-3 text-muted">
-                                                    <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($paylessApplied ? ' (PAYLESS)' : ''))) }}:</span>
+                                                    <span>DISCOUNT{{ $holidayApplied ? ' (HOLIDAY)' : ($merdekaApplied ? ' (MERDEKA)' : ($doubleExpApplied ? ' (DOUBLE EXP)' : ($halloweenApplied ? ' (HALLOWEEN)' : ($highAngleBundleApplied ? ' (HIGH ANGLE BUNDLING)' : '')))) }}:</span>
                                                     <span>- Rp {{ number_format($this->coupon->diskon ?? 0, 0, ',', '.') }}</span>
                                                 </div>
                                             @endif
