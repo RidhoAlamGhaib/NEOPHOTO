@@ -1276,7 +1276,7 @@ new class extends Component
                                                        required />
                                             </div>
                                             <div class="d-flex justify-content-end">
-                                                <a href="/" class="btn btn-primary">Finish</a>
+                                                <a href="/store" class="btn btn-primary">Finish</a>
                                             </div>
                                         @endif
 
