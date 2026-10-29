@@ -2,53 +2,50 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\product;
-use App\Http\Requests\StoreproductRequest;
-use App\Http\Requests\UpdateproductRequest;
-use App\Http\Controllers\StorecustomerRequest;
-use App\Http\Controllers\UpdatecustomerRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
-use Illuminate\Support\Facades\Auth;
+use App\Models\product;
 use Illuminate\Support\Facades\Artisan;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class ProductController extends Controller
 {
     public function runcommand()
-{
-    // Execute a simple command
-    Artisan::call('config:clear');
+    {
+        // Execute a simple command
+        Artisan::call('config:clear');
 
-    return "Command executed!";
-}
+        return 'Command executed!';
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(string $id)
     {
-        if(Auth::check()){
-        return view('checkout', [
-            "id" => $id,
-            "addon"=>product::whereNot("type","addon")->get()
-        ]);}
-        else{
+        if (Auth::check()) {
+            return view('checkout', [
+                'id' => $id,
+                'addon' => product::whereNot('type', 'addon')->get(),
+            ]);
+        } else {
             return redirect('/login');
         }
 
-       
     }
+
     public function test(string $id)
     {
-        if(Auth::check()){
-        return view('test', [
-            "id" => $id,
-            "addon"=>product::whereNot("type","addon")->get()
-        ]);}
-        else{
+        if (Auth::check()) {
+            return view('test', [
+                'id' => $id,
+                'addon' => product::whereNot('type', 'addon')->get(),
+            ]);
+        } else {
             return redirect('/login');
         }
-       
+
     }
 
     /**
@@ -62,30 +59,20 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store()
+    public function view(): View
     {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function view()
-    {
-        if(Auth::check()){
-                $order = Order::create([
+        $order = Order::create([
             'customer_id' => 1,
-            'order-UC' => 'ORD-' . strtoupper(uniqid()),
+            'order-UC' => 'ORD-'.strtoupper(uniqid()),
         ]);
-        $orderItems =OrderItem::where('order_id', $order->id)->get();
+
+        $orderItems = OrderItem::where('order_id', $order->id)->get();
+
         return view('app', [
-            'order' => Order::Find($order->id),
+            'order' => $order,
             'orderItems' => $orderItems,
-            'products' => product::whereNot("type", "addon")->get(),
-        ]);}
-        else{
-            return redirect('/login');
-        }
+            'products' => product::whereNot('type', 'addon')->get(),
+        ]);
     }
 
     /**
@@ -101,11 +88,11 @@ class ProductController extends Controller
      */
     public function updateappr()
     {
-Order::where('status', 'paid')
-    ->whereNull('outlet')
-    ->update([
-        'outlet' => 'Kota Kasablanka'
-    ]);
+        Order::where('status', 'paid')
+            ->whereNull('outlet')
+            ->update([
+                'outlet' => 'Kota Kasablanka',
+            ]);
     }
 
     /**

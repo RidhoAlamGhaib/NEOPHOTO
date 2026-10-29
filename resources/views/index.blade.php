@@ -255,6 +255,27 @@
     .exp-overlay h5{color:#fff;font-size:15px;font-weight:800;margin-bottom:2px}
     .exp-overlay p{color:rgba(255,255,255,.8);font-size:12px;margin:0}
 
+    .visa-photo-banner{
+      display:flex;align-items:center;gap:24px;
+      padding:32px;border-radius:var(--card-radius);
+      background:linear-gradient(135deg,#FFF0F7,#F0FFFE);
+      box-shadow:0 8px 26px rgba(255,107,174,.12)
+    }
+    .visa-photo-icon{
+      flex:0 0 84px;width:84px;height:84px;border-radius:24px;
+      display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(135deg,var(--pink),var(--pink-dark));
+      color:#fff;font-size:34px
+    }
+    .visa-photo-copy{flex:1}
+    .visa-photo-copy p{font-size:14px;color:var(--muted);margin:8px 0 16px}
+    .visa-photo-note{
+      flex:0 0 250px;padding:16px;border-radius:16px;
+      background:rgba(255,255,255,.8);font-size:12px;color:var(--muted)
+    }
+    .visa-photo-note i{color:var(--pink);margin-right:6px}
+    .visa-photo-example{flex:0 1 260px;width:100%;height:auto;object-fit:contain}
+
     .video-thumb{
       background:linear-gradient(135deg,var(--dark),#4A3050);
       border-radius:14px;display:flex;align-items:center;justify-content:center;
@@ -500,6 +521,9 @@
       .footer-bar .policy{display:none}
       .collab-banner::before{display:none}
       .footer-bar .d-flex{flex-wrap:wrap;gap:8px!important}
+      .visa-photo-banner{flex-wrap:wrap;padding:24px}
+      .visa-photo-note{flex-basis:100%}
+      .visa-photo-example{max-width:320px;margin:0 auto}
     }
     @media(max-width:576px){
       .hero-stats{justify-content:center}
@@ -533,6 +557,7 @@
         <li class="nav-item"><a class="nav-link" href="#outlet">Outlet</a></li>
         <li class="nav-item"><a class="nav-link" href="#activation">Activation</a></li>
         <li class="nav-item"><a class="nav-link" href="#partnership">Kemitraan</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ route('about') }}">Tentang Kami</a></li>
       </ul>
       <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
         <a href="#outlet" class="btn-neo-primary" style="padding:9px 18px;font-size:13px">
@@ -733,7 +758,7 @@
           </div>
           <div class="stat-divider"></div>
           <div class="text-center">
-            <div class="stat-num">4</div>
+            <div class="stat-num">2</div>
             <div class="stat-label">Outlet Aktif</div>
           </div>
         </div>
@@ -888,7 +913,7 @@
   </div>
   <div class="col-sm-6 col-lg-4 d-flex justify-content-center">
     <div class="hero-booth mx-auto" style="max-width:300px">
-      <img src="assets/HOMEPAGE/EXPERIENCEv3/3.png" alt="High Angle Frame"/>
+      <img src="assets/HOMEPAGE/EXPERIENCEv3/bigroom.png" alt="High Angle Frame"/>
       <a type="button" href="#outlet" class="booth-label">📸 Mulai Foto</a>
     </div>
   </div>
@@ -915,6 +940,35 @@
   </div>
 </div>
 
+  </div>
+</section>
+
+<!-- ══ VISA PHOTO ════════════════════════════════════ -->
+<section class="py-5 bg-white" id="visa-photo">
+  <div class="container">
+    <div class="visa-photo-banner">
+      <div class="visa-photo-icon" aria-hidden="true">
+        <i class="fa-solid fa-passport"></i>
+      </div>
+      <div class="visa-photo-copy">
+        <h2 class="section-title mb-1"><span>Pas Foto</span> di Booth Neo Photo</h2>
+        <p>Butuh foto untuk visa? Paspor? Kamu bisa mengambil pas foto langsung di booth Neo Photo.</p>
+        <a href="#outlet" class="btn-neo-primary">
+          <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Temukan Booth
+        </a>
+      </div>
+
+      <img
+        class="visa-photo-example"
+        src="{{ asset('assets/HOMEPAGE/EXPERIENCEv3/visa.png') }}"
+        alt="Contoh hasil cetak pas foto visa"
+        loading="lazy"
+      />
+      <div class="visa-photo-note">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        Pastikan ukuran dan ketentuan foto sesuai persyaratan negara tujuanmu.
+      </div>
+    </div>
   </div>
 </section>
 
@@ -946,32 +1000,6 @@
       </div>
       <div class="col-sm-6 col-xl-3">
         <div class="outlet-card">
-          <img class="outlet-img g1" src="assets/HOMEPAGE/OUTLET/central park 2.png" style="width:100%;object-fit:cover" alt="CP2"/><span class="outlet-status status-open">Buka</span>
-          <div class="outlet-info">
-            <h5>Central Park 2</h5>
-            <p>Lt. 1, Central Park Mall, Jakarta</p>
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="outlet-rating"><i class="fas fa-star"></i> 4.8</div>
-              <a TYPE="button" href="https://maps.app.goo.gl/4r11d2tX4CBWCgbt9" class="btn-wa"><i class="fa-solid fa-map-location"></i> Temukan</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-xl-3">
-        <div class="outlet-card">
-           <img class="outlet-img g1" src="assets/HOMEPAGE/OUTLET/kokas.png" style="width:100%;object-fit:cover" alt="Kokas"/><span class="outlet-status status-open">Buka</span>
-          <div class="outlet-info">
-            <h5>Kota Kasablanka</h5>
-            <p>Lt. 3, Kota Kasablanka Mall, Jakarta</p>
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="outlet-rating"><i class="fas fa-star"></i> 5.0</div>
-              <a TYPE="button" href="https://maps.app.goo.gl/BoKCxzQxk5GN88ix9" class="btn-wa"><i class="fa-solid fa-map-location"></i> Temukan</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-xl-3">
-        <div class="outlet-card">
           <img class="outlet-img g1" src="assets/HOMEPAGE/OUTLET/blok m.png" style="width:100%;object-fit:cover" alt="Kokas"/><span class="outlet-status status-open">Buka</span>
           <div class="outlet-info">
             <h5>Plaza Blok M</h5>
@@ -980,6 +1008,21 @@
               <div class="outlet-rating"><i class="fas fa-star"></i> 4.7</div>
               <a TYPE="button" href="https://maps.app.goo.gl/cvLKC943gwQG8Ux48" class="btn-wa"><i class="fa-solid fa-map-location"></i> Temukan</a>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="outlet-card">
+          <img
+            class="outlet-img"
+            src="{{ asset('assets/HOMEPAGE/EXPERIENCEv3/CGV.png') }}"
+            style="width:100%;object-fit:contain;background:#fff;padding:28px"
+            alt="CGV"
+            loading="lazy"
+          />
+          <div class="outlet-info">
+            <h5>Neo Photo di CGV</h5>
+            <p>Booth Neo Photo juga tersedia di beberapa bioskop CGV.</p>
           </div>
         </div>
       </div>
@@ -1075,7 +1118,7 @@
     <div class="row align-items-center g-5">
       <div class="col-lg-6">
         <div class="section-tag mb-2">🤝 Kemitraan</div>
-        <h2 class="section-title mb-1">Kenapa <span>Harus</span> Neo Photo?</h2>
+        <h2 class="section-title mb-1">Mau bergabung?</h2>
         <p class="mb-4" style="font-size:14px;color:var(--muted)">Kami hadir dengan konsep yang berbeda dan pengalaman yang tak terlupakan</p>
 
         <div class="d-flex flex-column gap-3 mb-4">
@@ -1116,7 +1159,7 @@
         <div class="bg-white rounded-4 p-4" style="box-shadow:0 12px 40px rgba(255,107,174,.15)">
           <div class="row g-3">
             <div class="col-6"><div class="partner-stat-box"><div class="partner-stat-num">50K+</div><p style="font-size:12px;color:var(--muted);font-weight:700;margin:0">Pelanggan Puas</p></div></div>
-            <div class="col-6"><div class="partner-stat-box mint"><div class="partner-stat-num">4+</div><p style="font-size:12px;color:var(--muted);font-weight:700;margin:0">Outlet Aktif</p></div></div>
+            <div class="col-6"><div class="partner-stat-box mint"><div class="partner-stat-num">2+</div><p style="font-size:12px;color:var(--muted);font-weight:700;margin:0">Outlet Aktif</p></div></div>
             <div class="col-6"><div class="partner-stat-box mint"><div class="partner-stat-num">Frame Unik</div><p style="font-size:12px;color:var(--muted);font-weight:700;margin:0">Khusus Buat Kamu!</p></div></div>
             <div class="col-6"><div class="partner-stat-box"><div class="partner-stat-num">4.9⭐</div><p style="font-size:12px;color:var(--muted);font-weight:700;margin:0">Rating Rata-rata</p></div></div>
           </div>
@@ -1127,7 +1170,7 @@
 </section>
 
 <!-- ══ GROW / FRANCHISE ═════════════════════════════ -->
-<section class="py-5 bg-white" id="grow">
+<!-- <section class="py-5 bg-white" id="grow">
   <div class="container">
     <div class="grow-inner">
       <div class="row align-items-center g-5 grow-rel">
@@ -1161,7 +1204,7 @@
       </div>
     </div>
   </div>
-</section>
+</section> -->
 
 <!-- ══ FOOTER ═══════════════════════════════════════ -->
 <footer>
@@ -1184,30 +1227,14 @@
       <div class="col-6 col-md-3 col-lg-2 footer-col">
         <h6>Perusahaan</h6>
         <ul>
-          <li><a href="#">Tentang Kami</a></li>
-          <li><a href="#">Tim Kami</a></li>
-          <li><a href="#">Karir</a></li>
-          <li><a href="#">Blog</a></li>
+          <li><a href="{{ route('about') }}">Tentang Kami</a></li>
         </ul>
       </div>
 
       <div class="col-6 col-md-3 col-lg-3 footer-col">
         <h6>Kontak</h6>
         <ul>
-          <li><a href="#">Help &amp; Support</a></li>
-          <li><a href="#">Partnership</a></li>
-          <li><a href="#">Franchise</a></li>
-          <li><a href="#"><i class="fab fa-whatsapp me-1"></i>+62 811 1234 5678</a></li>
-        </ul>
-      </div>
-
-      <div class="col-6 col-md-3 col-lg-3 footer-col">
-        <h6>Legal</h6>
-        <ul>
-          <li><a href="#">Syarat &amp; Ketentuan</a></li>
-          <li><a href="#">Kebijakan Privasi</a></li>
-          <li><a href="#">Refund &amp; Pembatalan</a></li>
-          <li><a href="#">Cookie Policy</a></li>
+          <li><a><i class="fab fa-whatsapp me-1"></i>+62 858 1084 7780</a></li>
         </ul>
       </div>
     </div>

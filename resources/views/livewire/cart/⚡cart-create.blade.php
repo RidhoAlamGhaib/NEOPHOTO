@@ -21,9 +21,28 @@ new class extends Component
 
     public bool $holidayActive = false;
 
+    // ── B1G1 HALLOWEEN (product 14, type 106) ──────────────────────────────────
+    // Bayar 60K (harga product 14). Satu pembelian B1G1 = 2 baris order_item
+    // (2 kode): High Angle (104) yang dibayar + 1 produk GRATIS pilihan customer
+    // (Standar 2 Lembar / 4 Foto / 6 Foto) dari dropdown.
+    private const B1G1_PRODUCT = 14;
+
+    private const B1G1_LINES_PER_UNIT = 2;
+
+    private const B1G1_HIGHANGLE_PRINT_TYPE = 104;
+
+    /** @var array<int, int> */
+    private const B1G1_FREE_PRODUCT_IDS = [1, 2, 3];
+
+    public int $b1g1FreeProductId = 1;
+
     public function mount()
     {
-        $this->products = Product::whereNot("type","addon")->get();
+        // Produk type 106 (B1G1) selalu paling depan di list.
+        $this->products = Product::whereNot("type", "addon")
+            ->get()
+            ->sortByDesc(fn ($p) => $p->type === '106')
+            ->values();
         $this->order = Order::latest()->first();
 
         // ambil product_id saja supaya ringan
@@ -58,60 +77,125 @@ new class extends Component
         ->pluck('product_id')
         ->toArray();
 }
-    public function increaseProduct($productId){
+    // Bikin baris order_item buat 1 unit produk. B1G1 jadi 2 baris sekaligus.
+    private function createProductLines(int $productId): void
+    {
+        if ($productId === self::B1G1_PRODUCT) {
+            // Baris High Angle (dibayar)
+            OrderItem::create([
+                'order_id'   => $this->order->id,
+                'product_id' => $productId,
+                'printType'  => self::B1G1_HIGHANGLE_PRINT_TYPE,
+                'printCount' => 1,
+            ]);
+
+            // Baris produk gratis sesuai pilihan dropdown
+            $freeProduct = $this->selectedB1G1FreeProduct();
+
+            OrderItem::create([
+                'order_id'   => $this->order->id,
+                'product_id' => $productId,
+                'printType'  => (int) $freeProduct->type,
+                'printCount' => (int) $freeProduct->id === 1 ? 2 : 1,
+            ]);
+
+            return;
+        }
+
         $type = $this->products->where('id', $productId)->first()->type;
-        if ($productId == 1) {
-                    # code...
-                     OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                    'printCount'=>2]);
-                    }else{
-                        OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                        'printCount'=>1
-                        ]);
-                        }
+
+        OrderItem::create([
+            'order_id'   => $this->order->id,
+            'product_id' => $productId,
+            'printType'  => $type,
+            'printCount' => $productId == 1 ? 2 : 1,
+        ]);
+    }
+
+    // Hapus 1 unit produk. B1G1 kehapus sepasang (2 baris) sekaligus.
+    private function removeProductUnit(int $productId): void
+    {
+        $perUnit = $productId === self::B1G1_PRODUCT ? self::B1G1_LINES_PER_UNIT : 1;
+
+        $ids = OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', $productId)
+            ->orderByDesc('id')
+            ->limit($perUnit)
+            ->pluck('id');
+
+        OrderItem::whereIn('id', $ids)->delete();
+    }
+
+    /**
+     * Pilihan produk gratis B1G1 (Standar 2 Lembar / 4 Foto / 6 Foto) buat dropdown.
+     */
+    public function b1g1FreeProducts()
+    {
+        return $this->products->whereIn('id', self::B1G1_FREE_PRODUCT_IDS)->values();
+    }
+
+    /**
+     * Produk gratis yang lagi kepilih di dropdown. Value aneh → fallback Standar 2 Lembar.
+     */
+    private function selectedB1G1FreeProduct(): Product
+    {
+        $freeProductId = in_array($this->b1g1FreeProductId, self::B1G1_FREE_PRODUCT_IDS, true)
+            ? $this->b1g1FreeProductId
+            : self::B1G1_FREE_PRODUCT_IDS[0];
+
+        return $this->products->firstWhere('id', $freeProductId)
+            ?? Product::findOrFail($freeProductId);
+    }
+
+    /**
+     * Ringkasan produk gratis B1G1 yang udah masuk cart, mis. ['Standar 2 Lembar' => 1].
+     *
+     * @return array<string, int>
+     */
+    public function b1g1FreeSummary(): array
+    {
+        $freeNamesByType = $this->b1g1FreeProducts()->mapWithKeys(
+            fn ($product) => [(int) $product->type => $product->name]
+        );
+
+        return OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', self::B1G1_PRODUCT)
+            ->where('printType', '!=', self::B1G1_HIGHANGLE_PRINT_TYPE)
+            ->pluck('printType')
+            ->map(fn ($printType) => $freeNamesByType[(int) $printType] ?? 'Standar')
+            ->countBy()
+            ->all();
+    }
+
+    public function increaseProduct($productId)
+    {
+        $this->createProductLines((int) $productId);
         $this->refreshOrderItems();
     }
-    public function decreaseProduct($productId){
-        OrderItem::where('order_id',$this->order->id)
-                ->where('product_id',$productId)->first()
-                ->delete();
+
+    public function decreaseProduct($productId)
+    {
+        $this->removeProductUnit((int) $productId);
         $this->refreshOrderItems();
     }
+
     public function toggleProduct($productId)
     {
-        $type = $this->products->where('id', $productId)->first()->type;
-        if (in_array($productId, $this->orderItems)) {
+        $productId = (int) $productId;
 
-            OrderItem::where('order_id',$this->order->id)
-                ->where('product_id',$productId)
+        if (in_array($productId, $this->orderItems)) {
+            // Cancel → hapus semua baris produk ini (semua pasangan untuk B1G1).
+            OrderItem::where('order_id', $this->order->id)
+                ->where('product_id', $productId)
                 ->delete();
 
-            $this->orderItems = array_diff($this->orderItems, [$productId]);
+            $this->orderItems = array_values(array_diff($this->orderItems, [$productId]));
 
-        } else {
-                if ($productId == 1) {
-                    # code...
-                     OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                    'printCount'=>2]);
-                    }else{
-                        OrderItem::create([
-                'order_id'=>$this->order->id,
-                'product_id'=>$productId,
-                'printType'=>$type,
-                        'printCount'=>1
-                        ]);
-                        }
-            $this->orderItems[] = $productId;
+            return;
         }
+
+        $this->createProductLines($productId);
+        $this->refreshOrderItems();
     }
 
     };
@@ -165,9 +249,63 @@ new class extends Component
         50%  { transform: scale(1.05); box-shadow: 0 6px 20px rgba(255, 94, 142, 0.75); }
         100% { transform: scale(1);    box-shadow: 0 4px 14px rgba(255, 94, 142, 0.55); }
     }
+
+    /* ── Badge promo B1G1 Halloween: spooky orange/purple ── */
+    .promo-b1g1 {
+        background: linear-gradient(135deg, #ff7518, #6a0dad) !important;
+        border: 2px solid #fff;
+        border-radius: 14px;
+        padding: 6px 10px;
+        box-shadow: 0 4px 14px rgba(255, 117, 24, 0.55);
+        animation: promoPulse 1.6s ease-in-out infinite;
+        line-height: 1.15;
+    }
+
+    .promo-b1g1__tag {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+        margin-bottom: 2px;
+    }
+
+    .promo-b1g1__old {
+        font-size: 0.85rem;
+        color: #ffe1c4;
+        text-decoration: line-through;
+        opacity: 0.9;
+    }
+
+    .promo-b1g1__new {
+        font-size: 1.15rem;
+        font-weight: 900;
+        color: #fff;
+    }
+    /* ── Pemanis background: soft pastel blobs. Taro di html (canvas) biar
+       nembus ke seluruh halaman — style.css udah set html bg, jadi override. ── */
+    html {
+        background-color: #fff4f9;
+        background-image:
+            radial-gradient(50vw 50vw at 10% 5%,  rgba(255, 154, 60, 0.22), transparent 60%),
+            radial-gradient(45vw 45vw at 90% 15%, rgba(255, 110, 199, 0.26), transparent 60%),
+            radial-gradient(55vw 55vw at 82% 95%, rgba(106, 13, 173, 0.16), transparent 62%),
+            radial-gradient(45vw 45vw at 15% 92%, rgba(255, 179, 186, 0.32), transparent 62%);
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    }
+
+    body {
+        background: transparent;
+    }
+
+    .cart-sugar-bg {
+        background: transparent;
+        min-height: 100vh;
+    }
 </style>
 
-<container class="d-flex flex-column text-center align-item-center justify-content-center " style="background-color:#fff4f9;">
+<container class="cart-sugar-bg d-flex flex-column text-center align-item-center justify-content-center " style="background:transparent;">
     @if ($orderItems)
     <div class="d-flex justify-content-end" style="position:sticky;top:0;">
         <a href="/checkout/{{$order->id}}"  class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4 " style="background-color: #ffb3ba;border-color: #d6eadf;width:10rem;z-index:100">NEXT <i class="fa-solid text-white fa-right-long"></i></a>
@@ -192,8 +330,13 @@ new class extends Component
                 <div class="card__content">
             @if(in_array($product->id,$orderItems))
 
+            @php
+                $unitCount = collect($orderItems)->filter(fn($id) => $id == $product->id)->count();
+                // B1G1 nyimpen 2 baris per unit → tampilin jumlah unit sebenarnya.
+                if ((int) $product->id === 14) { $unitCount = intdiv($unitCount, 2); }
+            @endphp
             <div class="card__badge selected fs-4 text-white">
-                <i class="bi bi-cart-check text-white fw-bold"></i>-{{ collect($orderItems)->filter(fn($id) => $id == $product->id)->count() }}
+                <i class="bi bi-cart-check text-white fw-bold"></i>-{{ $unitCount }}
             </div>
 
             @elseif($isHolidayProduct)
@@ -201,6 +344,18 @@ new class extends Component
                 <div class="promo-holiday__tag">PROMO HOLIDAY</div>
                 <div class="promo-holiday__old">Rp {{ number_format($product->price,0,',','.') }}</div>
                 <div class="promo-holiday__new">Rp {{ number_format(40000,0,',','.') }}</div>
+            </div>
+
+            @elseif((int) $product->id === 14)
+            @php
+                // Harga "normal" = High Angle (4) + produk gratis yang dipilih, dicoret.
+                $b1g1Old = (optional($products->firstWhere('id', 4))->price ?? 0)
+                         + (optional($products->firstWhere('id', $b1g1FreeProductId))->price ?? 0);
+            @endphp
+            <div class="card__badge promo-b1g1 text-white">
+                <div class="promo-b1g1__tag">🎃 B1G1 HALLOWEEN</div>
+                <div class="promo-b1g1__old">Rp {{ number_format($b1g1Old, 0, ',', '.') }}</div>
+                <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
             </div>
 
             @else
@@ -227,6 +382,27 @@ new class extends Component
                     <div class="container">
 
                         <div class="row justify-content-between">
+                            @if ((int) $product->id === 14)
+                                <div class="col-12 mb-2 text-start">
+                                    <label for="b1g1-free-product" class="fw-bold fs-6 mb-1">🎁 Pilih produk GRATIS</label>
+                                    <select id="b1g1-free-product"
+                                            wire:model.live="b1g1FreeProductId"
+                                            class="form-select fw-bold">
+                                        @foreach ($this->b1g1FreeProducts() as $freeProduct)
+                                            <option value="{{ $freeProduct->id }}">{{ $freeProduct->name }}</option>
+                                        @endforeach
+                                    </select>
+
+                                    @if (in_array($product->id, $orderItems))
+                                        <div class="small mt-1">
+                                            Gratis di cart:
+                                            @foreach ($this->b1g1FreeSummary() as $freeName => $freeQty)
+                                                <span class="badge bg-success">{{ $freeName }} ×{{ $freeQty }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                             <div class="col-12">
 
                     <button wire:click="toggleProduct({{ $product->id }})" class="card__button active mb-2 rounded btn fw-bold fs-4 w-100"  style="background-color: #ffb3ba; color: #fff4f9;">
