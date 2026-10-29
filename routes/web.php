@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BoothController;
 
 // Route::get('/', [Controller::class, 'index']);
 Route::get('/store', [ProductController::class, 'view'])->name('store')->middleware('auth');
@@ -28,5 +29,10 @@ Route::get('/order/export/{id}', [CustomerController::class, 'exportSingle'])
 Route::get('/dashboard/export-orders', [CustomerController::class, 'export'])
     ->name('orders.export')
     ->middleware('auth');
+
+Route::get('/booth/bridge', [BoothController::class, 'bridge']);
+Route::post('/booth/session', [BoothController::class, 'session'])->middleware('throttle:120,1');
+Route::post('/booth/promo', [BoothController::class, 'promo'])->middleware('throttle:60,1');
+Route::post('/booth/coupon', [BoothController::class, 'coupon'])->middleware('throttle:60,1');
 
 require __DIR__.'/settings.php';
