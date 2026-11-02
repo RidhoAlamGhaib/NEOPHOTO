@@ -17,7 +17,10 @@ return [
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
-
+    'booth' => [
+        'key' => env('BOOTH_API_KEY', 'test'),
+        
+    ],
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
