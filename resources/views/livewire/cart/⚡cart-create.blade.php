@@ -36,6 +36,7 @@ new class extends Component
     {
         // Produk type 106 (B1G1) selalu paling depan di list.
         $this->products = Product::whereNot("type", "addon")
+            ->where('status', 'active')
             ->get()
             ->sortByDesc(fn ($p) => $p->type === '106')
             ->values();
