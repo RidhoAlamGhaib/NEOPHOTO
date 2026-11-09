@@ -21,7 +21,7 @@ new class extends Component
 
     public bool $holidayActive = false;
 
-    // ── B1G1 HALLOWEEN (product 14, type 106) ──────────────────────────────────
+    // ── B1G1 RAINY DAYS (product 14, type 106) ─────────────────────────────────
     // Bayar 60K (harga product 14). Satu pembelian B1G1 = 2 baris order_item
     // (2 kode): High Angle (104) yang dibayar + 1 produk GRATIS pilihan customer
     // (Standar 2 Lembar / 4 Foto / 6 Foto) dari dropdown.
@@ -246,18 +246,18 @@ new class extends Component
     }
 
     @keyframes promoPulse {
-        0%   { transform: scale(1);    box-shadow: 0 4px 14px rgba(255, 94, 142, 0.55); }
-        50%  { transform: scale(1.05); box-shadow: 0 6px 20px rgba(255, 94, 142, 0.75); }
-        100% { transform: scale(1);    box-shadow: 0 4px 14px rgba(255, 94, 142, 0.55); }
+        0%   { transform: scale(1);    box-shadow: 0 4px 14px rgba(74, 144, 217, 0.50); }
+        50%  { transform: scale(1.05); box-shadow: 0 6px 20px rgba(74, 144, 217, 0.70); }
+        100% { transform: scale(1);    box-shadow: 0 4px 14px rgba(74, 144, 217, 0.50); }
     }
 
-    /* ── Badge promo B1G1 Halloween: spooky orange/purple ── */
+    /* ── Badge promo B1G1 Rainy Days: cool blue/slate ── */
     .promo-b1g1 {
-        background: linear-gradient(135deg, #ff7518, #6a0dad) !important;
-        border: 2px solid #fff;
+        background: linear-gradient(135deg, #4a90d9, #6c7a8e) !important;
+        border: 2px solid #d0e4f7;
         border-radius: 14px;
         padding: 6px 10px;
-        box-shadow: 0 4px 14px rgba(255, 117, 24, 0.55);
+        box-shadow: 0 4px 14px rgba(74, 144, 217, 0.50);
         animation: promoPulse 1.6s ease-in-out infinite;
         line-height: 1.15;
     }
@@ -266,14 +266,14 @@ new class extends Component
         font-size: 0.72rem;
         font-weight: 800;
         letter-spacing: 0.5px;
-        color: #fff;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+        color: #e8f4ff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.30);
         margin-bottom: 2px;
     }
 
     .promo-b1g1__old {
         font-size: 0.85rem;
-        color: #ffe1c4;
+        color: #b8d4f0;
         text-decoration: line-through;
         opacity: 0.9;
     }
@@ -286,12 +286,12 @@ new class extends Component
     /* ── Pemanis background: soft pastel blobs. Taro di html (canvas) biar
        nembus ke seluruh halaman — style.css udah set html bg, jadi override. ── */
     html {
-        background-color: #fff4f9;
+        background-color: #eef3f9;
         background-image:
-            radial-gradient(50vw 50vw at 10% 5%,  rgba(255, 154, 60, 0.22), transparent 60%),
-            radial-gradient(45vw 45vw at 90% 15%, rgba(255, 110, 199, 0.26), transparent 60%),
-            radial-gradient(55vw 55vw at 82% 95%, rgba(106, 13, 173, 0.16), transparent 62%),
-            radial-gradient(45vw 45vw at 15% 92%, rgba(255, 179, 186, 0.32), transparent 62%);
+            radial-gradient(50vw 50vw at 10% 5%,  rgba(74, 144, 217, 0.18), transparent 60%),
+            radial-gradient(45vw 45vw at 90% 15%, rgba(108, 122, 142, 0.20), transparent 60%),
+            radial-gradient(55vw 55vw at 82% 95%, rgba(100, 149, 237, 0.15), transparent 62%),
+            radial-gradient(45vw 45vw at 15% 92%, rgba(176, 196, 222, 0.28), transparent 62%);
         background-attachment: fixed;
         background-repeat: no-repeat;
     }
@@ -309,7 +309,7 @@ new class extends Component
 <container class="cart-sugar-bg d-flex flex-column text-center align-item-center justify-content-center " style="background:transparent;">
     @if ($orderItems)
     <div class="d-flex justify-content-end" style="position:sticky;top:0;">
-        <a href="/checkout/{{$order->id}}"  class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4 " style="background-color: #ffb3ba;border-color: #d6eadf;width:10rem;z-index:100">NEXT <i class="fa-solid text-white fa-right-long"></i></a>
+        <a href="/checkout/{{$order->id}}"  class="btn btn-primary mt-4 mx-4 fs-3 rounded-pill px-1 fw-bold border-4 " style="background-color: #4a90d9;border-color: #b0c4de;width:10rem;z-index:100">NEXT <i class="fa-solid text-white fa-right-long"></i></a>
     </div>
     @else
     @endif
@@ -354,7 +354,7 @@ new class extends Component
                          + (optional($products->firstWhere('id', $b1g1FreeProductId))->price ?? 0);
             @endphp
             <div class="card__badge promo-b1g1 text-white">
-                <div class="promo-b1g1__tag">🎃 B1G1 HALLOWEEN</div>
+                <div class="promo-b1g1__tag">{{$product->name}}</div>
                 <div class="promo-b1g1__old">Rp {{ number_format($b1g1Old, 0, ',', '.') }}</div>
                 <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
             </div>
@@ -406,7 +406,7 @@ new class extends Component
                             @endif
                             <div class="col-12">
 
-                    <button wire:click="toggleProduct({{ $product->id }})" class="card__button active mb-2 rounded btn fw-bold fs-4 w-100"  style="background-color: #ffb3ba; color: #fff4f9;">
+                    <button wire:click="toggleProduct({{ $product->id }})" class="card__button active mb-2 rounded btn fw-bold fs-4 w-100"  style="background-color: #4a90d9; color: #eef3f9;">
                         @if(in_array($product->id,$orderItems))
                         Cancel
                     @else
@@ -417,7 +417,7 @@ new class extends Component
                             </div>
                                 @if(in_array($product->id,$orderItems))
                             <div class="col-6">
-                        <button wire:click="decreaseProduct({{ $product->id }})" class="card__button active  rounded btn fw-bold fs-4 w-100"  style="background-color: #ffb3ba; color: #fff4f9;">-
+                        <button wire:click="decreaseProduct({{ $product->id }})" class="card__button active  rounded btn fw-bold fs-4 w-100"  style="background-color: #4a90d9; color: #eef3f9;">-
                     </button>
                             </div>
                         @else
@@ -426,7 +426,7 @@ new class extends Component
                             <div class="col-6">
 
 
-                        <button wire:click="increaseProduct({{ $product->id }})" class="card__button active  rounded btn fw-bold fs-4 w-100"  style="background-color: #ffb3ba; color: #fff4f9;">+
+                        <button wire:click="increaseProduct({{ $product->id }})" class="card__button active  rounded btn fw-bold fs-4 w-100"  style="background-color: #4a90d9; color: #eef3f9;">+
                     </button>
                             </div>
                         @else
