@@ -172,40 +172,45 @@
 
         /* ── Member summary ─────────────────────────────────────── */
         .member-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; }
+        .member-avatar { flex: none; width: 4.5rem; height: 4.5rem; border-radius: 50%; object-fit: cover; }
         .member-identity { flex: 1 1 11rem; min-width: 0; }
         .member-identity h1 { overflow-wrap: anywhere; }
 
-        .avatar-upload { position: relative; display: block; flex: none; width: 104px; height: 104px; margin: 0; border-radius: 50%; cursor: pointer; }
-        .avatar-upload img,
-        .avatar-placeholder { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .avatar-upload [hidden] { display: none !important; }
-        .avatar-placeholder { display: grid; place-items: center; background: #fbe9ec; color: #c65e70; font-size: 2.25rem; font-weight: 700; }
-        .avatar-badge {
-            position: absolute;
-            right: 0;
-            bottom: 0;
-            display: grid;
-            place-items: center;
-            width: 32px;
-            height: 32px;
-            border: 3px solid #fff;
-            border-radius: 50%;
-            background: #d97789;
-            color: #fff;
-            transition: background-color .15s;
-        }
-        .avatar-upload:hover .avatar-badge { background: #bf5e70; }
-        .avatar-upload:focus-within { outline: 3px solid rgb(217 119 137 / 40%); outline-offset: 3px; }
-
-        .member-count { margin-left: auto; text-align: right; }
+        .member-metrics { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
+        .member-count { text-align: right; }
         .member-count-number { display: block; color: #c65e70; font-size: clamp(2.5rem, 8vw, 3.75rem); font-weight: 700; line-height: 1; }
         .member-count-label { display: block; margin-top: .35rem; font-size: .85rem; color: #6c757d; }
 
-        .upload-actions { display: none; align-items: center; gap: .75rem; margin-top: 1.25rem; }
-        .upload-actions.is-visible { display: flex; }
+        .tier-medal {
+            display: inline-flex;
+            align-items: center;
+            gap: .65rem;
+            padding: .4rem 1.1rem .4rem .4rem;
+            border-radius: 999px;
+            color: var(--tier-ink);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--tier-color) 60%, #fff) 0%, var(--tier-color) 100%);
+            border: 1px solid color-mix(in srgb, var(--tier-color) 75%, #000);
+            box-shadow: 0 .4rem 1rem color-mix(in srgb, var(--tier-color) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 55%);
+            white-space: nowrap;
+        }
+        .tier-medal-icon {
+            flex: none;
+            display: grid;
+            place-items: center;
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 50%;
+            background: rgb(255 255 255 / 60%);
+            box-shadow: inset 0 0 0 2px rgb(255 255 255 / 70%), 0 1px 3px rgb(0 0 0 / 15%);
+        }
+        .tier-medal-icon svg { width: 1.25rem; height: 1.25rem; fill: var(--tier-ink); }
+        .tier-medal-text { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
+        .tier-medal-label { font-size: .62rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
+        .tier-medal-name { font-size: 1.15rem; font-weight: 700; }
 
         @media (max-width: 575.98px) {
-            .member-count { display: flex; align-items: baseline; gap: .75rem; flex-basis: 100%; margin-left: 0; padding-top: 1rem; border-top: 1px solid #f3dfe2; text-align: left; }
+            .member-metrics { flex-basis: 100%; justify-content: space-between; margin-left: 0; padding-top: 1rem; border-top: 1px solid #f3dfe2; }
+            .member-count { display: flex; align-items: baseline; gap: .75rem; text-align: left; }
             .member-count-label { margin-top: 0; }
         }
     </style>
@@ -215,6 +220,7 @@
         <header class="d-flex align-items-center justify-content-between gap-3 mb-5">
             <a class="membership-header fw-bold text-decoration-none" href="{{ route('index') }}">NEOPHOTO</a>
             <div class="d-flex align-items-center gap-2">
+                <a class="btn btn-outline-secondary" href="{{ route('members.profile.edit') }}">Edit profile</a>
                 <a class="btn btn-outline-secondary" href="{{ route('index') }}">Home</a>
                 <form method="POST" action="{{ route('membership.logout') }}">
                     @csrf
@@ -225,49 +231,25 @@
 
         <section class="membership-card card mb-4" aria-labelledby="membership-title">
             <div class="card-body p-4 p-md-5">
-                <form
-                    method="POST"
-                    action="{{ route('members.profile-picture.update') }}"
-                    enctype="multipart/form-data"
-                >
-                    @csrf
-                    <div class="member-summary">
-                        <label class="avatar-upload" for="profile_picture" title="Change profile picture">
-                            <img
-                                data-avatar-img
-                                src="{{ $membership->profile_picture_path ? route('members.profile-picture') : '' }}"
-                                alt="{{ $membership->name ?: 'Member' }} profile picture"
-                                width="104"
-                                height="104"
-                                @unless ($membership->profile_picture_path) hidden @endunless
-                            >
-                            <span class="avatar-placeholder" data-avatar-placeholder @if ($membership->profile_picture_path) hidden @endif>
-                                {{ mb_strtoupper(mb_substr($membership->name ?: 'Member', 0, 1)) }}
-                            </span>
-                            <span class="avatar-badge" aria-hidden="true">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                            </span>
-                            <span class="visually-hidden">Change profile picture</span>
-                        </label>
-                        <input
-                            class="visually-hidden"
-                            id="profile_picture"
-                            name="profile_picture"
-                            type="file"
-                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                            required
-                        >
+                <div class="member-summary">
+                    <img
+                        class="member-avatar"
+                        src="{{ $profilePicture }}"
+                        alt="{{ $membership->name ?: 'Member' }} profile picture"
+                        width="72"
+                        height="72"
+                    >
+                    <div class="member-identity">
+                        <h1 id="membership-title" class="h3 mb-1">{{ $membership->name ?: 'Member' }}</h1>
+                        @if ($membership->phone)
+                            <p class="text-secondary mb-0">{{ $membership->phone }}</p>
+                        @endif
+                        @if ($membership->email)
+                            <p class="small text-secondary mb-0 text-break">{{ $membership->email }}</p>
+                        @endif
+                    </div>
 
-                        <div class="member-identity">
-                            <h1 id="membership-title" class="h3 mb-1">{{ $membership->name ?: 'Member' }}</h1>
-                            @if ($membership->phone)
-                                <p class="text-secondary mb-0">{{ $membership->phone }}</p>
-                            @endif
-                            @if ($membership->email)
-                                <p class="small text-secondary mb-0 text-break">{{ $membership->email }}</p>
-                            @endif
-                        </div>
-
+                    <div class="member-metrics">
                         <div
                             class="member-count"
                             aria-label="{{ $membership->paid_purchases_count }} {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}"
@@ -277,19 +259,17 @@
                                 {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}
                             </span>
                         </div>
+                        <div class="tier-medal tier-{{ $journey['tier'] }}">
+                            <span class="tier-medal-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.1 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg>
+                            </span>
+                            <span class="tier-medal-text">
+                                <span class="tier-medal-label">Member</span>
+                                <span class="tier-medal-name">{{ $journey['tierLabel'] }}</span>
+                            </span>
+                        </div>
                     </div>
-
-                    <div class="upload-actions" data-upload-actions>
-                        <button class="btn btn-membership btn-sm" type="submit">Save new picture</button>
-                        <span class="small text-secondary">JPG, PNG, or WebP; up to 20 MB.</span>
-                    </div>
-                    @error('profile_picture')
-                        <p class="text-danger small mt-3 mb-0">{{ $message }}</p>
-                    @enderror
-                    @if (session('status'))
-                        <p class="text-success small mt-3 mb-0">{{ session('status') }}</p>
-                    @endif
-                </form>
+                </div>
             </div>
         </section>
 
@@ -302,42 +282,8 @@
             <div class="card-body p-4 p-md-5">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
                     <h2 id="journey-title" class="h4 mb-0">My Journey</h2>
-                    <span class="badge rounded-pill journey-tier-badge tier-{{ $journey['tier'] }}">{{ $journey['tierLabel'] }} member</span>
                 </div>
                 <p class="text-secondary mb-4">Every paid purchase moves you one step further and unlocks rewards and member discounts.</p>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <div class="journey-stat">
-                            <span class="journey-stat-label">This cycle</span>
-                            <p class="h4 fw-bold mb-1">{{ $plural($journey['count']) }}</p>
-                            <p class="small text-secondary mb-0">{{ $journey['tierLabel'] }}: {{ $journey['perk'] }}</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="journey-stat">
-                            <span class="journey-stat-label">Next reward</span>
-                            @if ($journey['nextReward'])
-                                <p class="h6 fw-bold mb-1">{{ $journey['nextReward']['label'] }}</p>
-                                <p class="small text-secondary mb-0">
-                                    At purchase #{{ $journey['nextReward']['step'] }} · {{ $plural($journey['nextReward']['remaining']) }} to go
-                                </p>
-                            @else
-                                <p class="h6 fw-bold mb-1">All rewards unlocked</p>
-                                <p class="small text-secondary mb-0">More rewards are coming. Keep going!</p>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="journey-stat">
-                            <span class="journey-stat-label">Journey resets</span>
-                            <p class="h6 fw-bold mb-1">{{ $journey['cycleEnd']->format('d M Y') }}</p>
-                            <p class="small text-secondary mb-0">
-                                {{ $journey['daysLeft'] === 1 ? '1 day' : $journey['daysLeft'].' days' }} left · every 12 months from registration
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
                 @if ($journey['nextTier'])
                     <p class="mb-3">
@@ -397,19 +343,22 @@
                     <li class="border-top pt-2 small text-secondary">More rewards after purchase #11.</li>
                 </ul>
 
-                <h3 class="h6 fw-bold mb-2">Membership tiers</h3>
+                @php
+                    $currentTierIndex = collect($journey['tiers'])->search(fn ($t) => $t['current']);
+                    $upcomingTiers = array_slice($journey['tiers'], $currentTierIndex === false ? 0 : $currentTierIndex + 1);
+                @endphp
+
+                @if (count($upcomingTiers))
+                <h3 class="h6 fw-bold mb-2">Next membership tiers</h3>
                 <div class="row g-3">
-                    @foreach ($journey['tiers'] as $tier)
-                        <div class="col-md-4">
-                            <div class="journey-tier tier-{{ $tier['key'] }} {{ $tier['current'] ? 'is-current' : '' }}">
+                    @foreach ($upcomingTiers as $tier)
+                        <div class="col-md">
+                            <div class="journey-tier tier-{{ $tier['key'] }}">
                                 <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
                                     <span class="d-flex align-items-center gap-2">
                                         <span class="journey-chip tier-{{ $tier['key'] }}" aria-hidden="true"></span>
                                         <strong>{{ $tier['label'] }}</strong>
                                     </span>
-                                    @if ($tier['current'])
-                                        <span class="badge rounded-pill bg-dark">Your tier</span>
-                                    @endif
                                 </div>
                                 <p class="small text-secondary mb-1">Purchases {{ $tier['range'] }}</p>
                                 <p class="small mb-0">{{ $tier['summary'] }}</p>
@@ -417,6 +366,7 @@
                         </div>
                     @endforeach
                 </div>
+                @endif
 
                 <p class="small text-secondary mt-4 mb-0">
                     Your journey restarts every 12 months from the date you registered
@@ -450,24 +400,5 @@
             </div>
         </section>
     </main>
-    <script>
-        (function () {
-            const input = document.getElementById('profile_picture');
-            const img = document.querySelector('[data-avatar-img]');
-            const placeholder = document.querySelector('[data-avatar-placeholder]');
-            const actions = document.querySelector('[data-upload-actions]');
-            if (!input) return;
-
-            input.addEventListener('change', function () {
-                const file = input.files && input.files[0];
-                if (!file) { actions.classList.remove('is-visible'); return; }
-
-                img.src = URL.createObjectURL(file);
-                img.hidden = false;
-                placeholder.hidden = true;
-                actions.classList.add('is-visible');
-            });
-        })();
-    </script>
 </body>
 </html>

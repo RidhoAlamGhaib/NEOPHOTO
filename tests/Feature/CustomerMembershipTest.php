@@ -1,13 +1,18 @@
 <?php
 
+use App\Models\customer;
 use App\Models\CustomerMembership;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
-test('homepage shows member login and registration forms', function () {
+test('homepage separates member login and registration with modal switching links', function () {
     $this->get(route('index'))
         ->assertOk()
+        ->assertSee('data-membership-mode="login"', false)
+        ->assertSee('data-membership-mode="register"', false)
+        ->assertSee('Belum menjadi member?')
+        ->assertSee('Sudah menjadi member?')
         ->assertSee('Member login')
         ->assertSee('Become a member');
 });
@@ -26,13 +31,49 @@ test('members can register from the homepage', function () {
     $response->assertRedirect(route('index'));
     $this->assertAuthenticatedAs($membership, 'member');
     $this->assertGuest('web');
-    $this->assertDatabaseCount('customers', 0);
+    $customer = customer::query()->findOrFail($membership->customer_id);
+    $this->assertDatabaseHas('customers', [
+        'id' => $customer->id,
+        'name' => 'Member Customer',
+        'email' => 'member@example.com',
+        'telp' => '08123456789',
+    ]);
     $this->assertDatabaseHas('customer_memberships', [
         'name' => 'Member Customer',
         'email' => 'member@example.com',
         'phone' => '08123456789',
+        'customer_id' => $customer->id,
     ]);
     expect(Hash::check('password', $membership->password))->toBeTrue();
+});
+
+test('member registration links the latest customer with the same phone number', function () {
+    $olderCustomer = customer::query()->create([
+        'name' => 'Older Customer',
+        'telp' => '08123456789',
+    ]);
+    $latestCustomer = customer::query()->create([
+        'name' => 'Latest Customer',
+        'telp' => '08123456789',
+    ]);
+
+    $this->post(route('membership.register'), [
+        'name' => 'Member Customer',
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ])
+        ->assertRedirect(route('index'));
+
+    $membership = CustomerMembership::query()->firstOrFail();
+
+    $this->assertDatabaseHas('customer_memberships', [
+        'id' => $membership->id,
+        'customer_id' => $latestCustomer->id,
+    ]);
+    expect($membership->customer->is($latestCustomer))->toBeTrue();
+    expect($membership->customer_id)->not->toBe($olderCustomer->id);
 });
 
 test('members can log in with their email and password', function () {

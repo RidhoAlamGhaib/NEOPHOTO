@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Concerns\PasswordValidationRules;
+use App\Models\customer;
 use App\Models\CustomerMembership;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,10 +40,24 @@ class CustomerMembershipController extends Controller
             'password' => $this->passwordRules(),
         ]);
 
+        $customerId = customer::query()
+            ->where('telp', $validated['phone'])
+            ->orderByDesc('id')
+            ->value('id');
+
+        if ($customerId === null) {
+            $customerId = customer::query()->create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'telp' => $validated['phone'],
+            ])->id;
+        }
+
         $membership = CustomerMembership::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'],
+            'customer_id' => $customerId,
             'password' => $validated['password'],
         ]);
 

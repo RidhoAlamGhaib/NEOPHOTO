@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\customer;
 use App\Models\Order;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * "My Journey" purchase streak.
@@ -60,28 +60,28 @@ class MembershipJourney
     ];
 
     /**
-     * Build a member's journey from paid orders for customers using the member's phone.
+     * Build a member's journey from paid orders linked to the member's customer.
      *
      * @return array<string, mixed>
      */
-    public function forPhone(string $phone, ?CarbonInterface $registeredAt, ?Carbon $now = null): array
+    public function forCustomerId(?int $customerId, ?CarbonInterface $registeredAt, ?Carbon $now = null): array
     {
         $now ??= Carbon::now();
 
-        $registrationDate = Order::query()
-            ->join('customers', 'customers.id', '=', 'orders.customer_id')
-            ->where('orders.status', 'paid')
-            ->where('customers.telp', $phone)
-            ->min('customers.created_at') ?? $registeredAt;
+        $registrationDate = $customerId === null
+            ? $registeredAt
+            : customer::query()->whereKey($customerId)->value('created_at') ?? $registeredAt;
 
         [$cycleStart, $cycleEnd] = $this->cycleFor($registrationDate, $now);
 
-        $count = Order::query()
-            ->where('status', 'paid')
-            ->whereHas('customer', fn (Builder $query) => $query->where('telp', $phone))
-            ->where('created_at', '>=', $cycleStart)
-            ->where('created_at', '<', $cycleEnd)
-            ->count();
+        $count = $customerId === null
+            ? 0
+            : Order::query()
+                ->where('customer_id', $customerId)
+                ->where('status', 'paid')
+                ->where('created_at', '>=', $cycleStart)
+                ->where('created_at', '<', $cycleEnd)
+                ->count();
 
         return $this->describe($count, $cycleStart, $cycleEnd, $now);
     }

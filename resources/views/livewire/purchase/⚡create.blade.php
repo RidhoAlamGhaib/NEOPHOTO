@@ -4,9 +4,11 @@ use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\customer;
+use App\Models\CustomerMembership;
 use App\Models\OrderItemAddon;
 use SweetAlert2\Laravel\Traits\WithSweetAlert;
 use SweetAlert2\Laravel\Swal;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\On;
@@ -590,16 +592,36 @@ new class extends Component
             return;
         }
 
-        $customer = customer::create($this->only(['name', 'telp', 'email', 'instagram']));
+        $phone = preg_replace('/[^0-9+]/', '', (string) $this->telp);
+        $membership = CustomerMembership::query()->where('phone', $phone)->first();
 
-        Order::find($orderId)->update([
-            'customer_id' => $customer->id,
-            'status'      => 'paid',
-            'apprcode'    => $this->appr,
-            'total'       => max(0, $this->total - ($this->coupon->diskon ?? 0)),
-            'promo_id'    => ($this->coupon->id ?? 0),
-            'outlet'      => auth()->user()->outlet,
-        ]);
+        if ($membership && $membership->customer_id === null) {
+            $this->isProcessing = false;
+            $this->paymentFailed = true;
+            $this->addError('telp', 'Akun member belum terhubung ke data customer. Hubungi administrator.');
+
+            return;
+        }
+
+        DB::transaction(function () use ($membership, $phone, $orderId): void {
+            if ($membership) {
+                $customerId = $membership->customer_id;
+            } else {
+                $customerId = customer::create([
+                    ...$this->only(['name', 'email', 'instagram']),
+                    'telp' => $phone,
+                ])->id;
+            }
+
+            Order::findOrFail($orderId)->update([
+                'customer_id' => $customerId,
+                'status'      => 'paid',
+                'apprcode'    => $this->appr,
+                'total'       => max(0, $this->total - ($this->coupon->diskon ?? 0)),
+                'promo_id'    => ($this->coupon->id ?? 0),
+                'outlet'      => auth()->user()->outlet,
+            ]);
+        });
 
         $this->isProcessing = false;
         $this->refreshData();

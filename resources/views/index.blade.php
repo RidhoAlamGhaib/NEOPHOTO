@@ -568,8 +568,11 @@
             <button type="submit" class="btn-neo-outline" style="padding:9px 18px;font-size:13px">Log Out</button>
           </form>
         @else
-          <button type="button" class="btn-neo-outline" data-bs-toggle="modal" data-bs-target="#membershipModal" style="padding:9px 18px;font-size:13px">
-            <i class="fas fa-user"></i> Member Login / Daftar
+          <button type="button" class="btn-neo-outline" data-bs-toggle="modal" data-bs-target="#membershipModal" data-membership-mode="login" style="padding:9px 18px;font-size:13px">
+            <i class="fas fa-user"></i> Login
+          </button>
+          <button type="button" class="btn-neo-primary" data-bs-toggle="modal" data-bs-target="#membershipModal" data-membership-mode="register" style="padding:9px 18px;font-size:13px">
+            Daftar
           </button>
         @endif
         <!-- <a href="#outlet" class="btn-neo-primary" style="padding:9px 18px;font-size:13px">
@@ -734,13 +737,13 @@
 </div>
 
 <!-- ══ MEMBERSHIP MODAL ═════════════════════════════ -->
-<div class="modal fade" id="membershipModal" tabindex="-1" aria-labelledby="membershipModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+<div class="modal fade" id="membershipModal" tabindex="-1" aria-labelledby="membershipModalLabel" aria-hidden="true" data-initial-mode="{{ $errors->membershipRegistration->any() ? 'register' : 'login' }}">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content p-2">
       <div class="modal-header px-4 pt-4 border-0">
         <div>
           <p class="text-pink fw-bold small mb-1">NEO PHOTO MEMBERSHIP</p>
-          <h2 class="modal-title fs-4" id="membershipModalLabel">Member Login & Registration</h2>
+          <h2 class="modal-title fs-4" id="membershipModalLabel">Member login</h2>
         </div>
         <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
@@ -750,75 +753,83 @@
         </button>
       </div>
       <div class="modal-body px-4 pb-4">
-        @if ($errors->membershipLogin->any() || $errors->membershipRegistration->any())
-          <div class="alert alert-danger" role="alert">Periksa kembali informasi yang kamu masukkan.</div>
-        @endif
+        <section data-membership-panel="login" aria-labelledby="member-login-heading">
+          <h3 id="member-login-heading" class="h5 mb-3">Member login</h3>
+          @if ($errors->membershipLogin->any())
+            <div class="alert alert-danger" role="alert">Periksa kembali informasi yang kamu masukkan.</div>
+          @endif
+          <form method="POST" action="{{ route('membership.login') }}">
+            @csrf
+            <div class="mb-3">
+              <label for="member-login-email" class="form-label">Email</label>
+              <input id="member-login-email" class="form-control @error('email', 'membershipLogin') is-invalid @enderror" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
+              @error('email', 'membershipLogin')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <div class="mb-3">
+              <label for="member-login-password" class="form-label">Password</label>
+              <input id="member-login-password" class="form-control @error('password', 'membershipLogin') is-invalid @enderror" type="password" name="password" autocomplete="current-password" required>
+              @error('password', 'membershipLogin')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <button type="submit" class="btn-neo-primary w-100 justify-content-center">Log in</button>
+          </form>
+          <p class="text-center mt-3 mb-0">
+            Belum menjadi member?
+            <button type="button" class="btn btn-link p-0 align-baseline" data-membership-mode="register">Daftar sekarang</button>
+          </p>
+        </section>
 
-        <div class="row g-4">
-          <section class="col-12 col-lg-5" aria-labelledby="member-login-heading">
-            <h3 id="member-login-heading" class="h5 mb-3">Member login</h3>
-            <form method="POST" action="{{ route('membership.login') }}">
-              @csrf
-              <div class="mb-3">
-                <label for="member-login-email" class="form-label">Email</label>
-                <input id="member-login-email" class="form-control @error('email', 'membershipLogin') is-invalid @enderror" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
-                @error('email', 'membershipLogin')
+        <section data-membership-panel="register" aria-labelledby="member-register-heading" hidden>
+          <h3 id="member-register-heading" class="h5 mb-3">Become a member</h3>
+          @if ($errors->membershipRegistration->any())
+            <div class="alert alert-danger" role="alert">Periksa kembali informasi yang kamu masukkan.</div>
+          @endif
+          <form method="POST" action="{{ route('membership.register') }}">
+            @csrf
+            <div class="row g-3">
+              <div class="col-12">
+                <label for="member-register-name" class="form-label">Full name</label>
+                <input id="member-register-name" class="form-control @error('name', 'membershipRegistration') is-invalid @enderror" type="text" name="name" value="{{ old('name') }}" autocomplete="name" required>
+                @error('name', 'membershipRegistration')
                   <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
               </div>
-              <div class="mb-3">
-                <label for="member-login-password" class="form-label">Password</label>
-                <input id="member-login-password" class="form-control @error('password', 'membershipLogin') is-invalid @enderror" type="password" name="password" autocomplete="current-password" required>
-                @error('password', 'membershipLogin')
+              <div class="col-12 col-md-6">
+                <label for="member-register-phone" class="form-label">Phone number</label>
+                <input id="member-register-phone" class="form-control @error('phone', 'membershipRegistration') is-invalid @enderror" type="tel" name="phone" value="{{ old('phone') }}" autocomplete="tel" required>
+                @error('phone', 'membershipRegistration')
                   <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
               </div>
-              <button type="submit" class="btn-neo-primary w-100 justify-content-center">Log in</button>
-            </form>
-          </section>
-
-          <section class="col-12 col-lg-7" aria-labelledby="member-register-heading">
-            <h3 id="member-register-heading" class="h5 mb-3">Become a member</h3>
-            <form method="POST" action="{{ route('membership.register') }}">
-              @csrf
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="member-register-name" class="form-label">Full name</label>
-                  <input id="member-register-name" class="form-control @error('name', 'membershipRegistration') is-invalid @enderror" type="text" name="name" value="{{ old('name') }}" autocomplete="name" required>
-                  @error('name', 'membershipRegistration')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                  @enderror
-                </div>
-                <div class="col-12 col-md-6">
-                  <label for="member-register-phone" class="form-label">Phone number</label>
-                  <input id="member-register-phone" class="form-control @error('phone', 'membershipRegistration') is-invalid @enderror" type="tel" name="phone" value="{{ old('phone') }}" autocomplete="tel" required>
-                  @error('phone', 'membershipRegistration')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                  @enderror
-                </div>
-                <div class="col-12">
-                  <label for="member-register-email" class="form-label">Email</label>
-                  <input id="member-register-email" class="form-control @error('email', 'membershipRegistration') is-invalid @enderror" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
-                  @error('email', 'membershipRegistration')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                  @enderror
-                </div>
-                <div class="col-12 col-md-6">
-                  <label for="member-register-password" class="form-label">Password</label>
-                  <input id="member-register-password" class="form-control @error('password', 'membershipRegistration') is-invalid @enderror" type="password" name="password" autocomplete="new-password" required>
-                  @error('password', 'membershipRegistration')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                  @enderror
-                </div>
-                <div class="col-12 col-md-6">
-                  <label for="member-register-password-confirmation" class="form-label">Confirm password</label>
-                  <input id="member-register-password-confirmation" class="form-control" type="password" name="password_confirmation" autocomplete="new-password" required>
-                </div>
+              <div class="col-12">
+                <label for="member-register-email" class="form-label">Email</label>
+                <input id="member-register-email" class="form-control @error('email', 'membershipRegistration') is-invalid @enderror" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
+                @error('email', 'membershipRegistration')
+                  <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
               </div>
-              <button type="submit" class="btn-neo-primary w-100 justify-content-center mt-3">Create membership</button>
-            </form>
-          </section>
-        </div>
+              <div class="col-12 col-md-6">
+                <label for="member-register-password" class="form-label">Password</label>
+                <input id="member-register-password" class="form-control @error('password', 'membershipRegistration') is-invalid @enderror" type="password" name="password" autocomplete="new-password" required>
+                @error('password', 'membershipRegistration')
+                  <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+              </div>
+              <div class="col-12 col-md-6">
+                <label for="member-register-password-confirmation" class="form-label">Confirm password</label>
+                <input id="member-register-password-confirmation" class="form-control" type="password" name="password_confirmation" autocomplete="new-password" required>
+              </div>
+            </div>
+            <button type="submit" class="btn-neo-primary w-100 justify-content-center mt-3">Create membership</button>
+          </form>
+          <p class="text-center mt-3 mb-0">
+            Sudah menjadi member?
+            <button type="button" class="btn btn-link p-0 align-baseline" data-membership-mode="login">Login di sini</button>
+          </p>
+        </section>
       </div>
     </div>
   </div>
@@ -1382,7 +1393,22 @@
 
   sections.forEach(s => observer.observe(s));
 
+  const membershipModal = document.getElementById('membershipModal');
+  const membershipModalTitle = document.getElementById('membershipModalLabel');
+  const membershipPanels = membershipModal.querySelectorAll('[data-membership-panel]');
+  const setMembershipMode = mode => {
+    membershipModalTitle.textContent = mode === 'register' ? 'Become a member' : 'Member login';
+    membershipPanels.forEach(panel => {
+      panel.hidden = panel.dataset.membershipPanel !== mode;
+    });
+  };
+
+  document.querySelectorAll('[data-membership-mode]').forEach(button => {
+    button.addEventListener('click', () => setMembershipMode(button.dataset.membershipMode));
+  });
+
   @if ($errors->membershipLogin->any() || $errors->membershipRegistration->any())
+    setMembershipMode(membershipModal.dataset.initialMode);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('membershipModal')).show();
   @endif
 

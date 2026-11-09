@@ -46,30 +46,145 @@
             color: #fff;
         }
 
-        .journey-step {
+        /* ── My Journey ─────────────────────────────────────────── */
+        .tier-silver  { --tier-color: #b3b3b3; --tier-ink: #333333; }
+        .tier-gold    { --tier-color: #f5c800; --tier-ink: #4a3a00; }
+        .tier-diamond { --tier-color: #2cb1f0; --tier-ink: #06335a; }
+
+        .journey-tier-badge { background: var(--tier-color); color: var(--tier-ink); font-weight: 700; padding: .5em .9em; }
+
+        .journey-stat {
+            height: 100%;
+            padding: 1rem 1.1rem;
+            border: 1px solid #f3dfe2;
+            border-radius: .75rem;
+            background: #fffafb;
+        }
+        .journey-stat-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: #a08a8e; }
+
+        .journey-path { --node: clamp(34px, 9.5vw, 54px); padding: 10px 6px 4px; }
+        .journey-row { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; }
+        .journey-row.is-reverse { flex-direction: row-reverse; }
+        .journey-step { display: flex; align-items: center; flex: 1 1 0; min-width: 0; }
+        .journey-step:last-child { flex: 0 0 auto; }
+        .journey-row.is-reverse .journey-step { flex-direction: row-reverse; }
+
+        .journey-link { position: relative; flex: 1 1 auto; height: 3px; margin: 0 .45rem; color: #ecdcdf; background: currentColor; border-radius: 2px; }
+        .journey-link.is-done, .journey-drop.is-done { color: #d97789; }
+        .journey-link::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-left: 7px solid currentColor;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+        .journey-row.is-reverse .journey-link::after {
+            right: auto;
+            left: -3px;
+            border-left: 0;
+            border-right: 7px solid currentColor;
+        }
+
+        .journey-drop {
+            position: relative;
+            width: 3px;
+            height: 30px;
+            margin: 2px calc(var(--node) / 2 - 1.5px) 2px auto;
+            color: #ecdcdf;
+            background: currentColor;
+        }
+        .journey-drop::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -3px;
+            transform: translateX(-50%);
+            border-top: 7px solid currentColor;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+        }
+
+        .journey-node { position: relative; flex: none; width: var(--node); height: var(--node); }
+        .journey-face {
             display: grid;
-            width: 2.5rem;
-            height: 2.5rem;
             place-items: center;
-            border: 2px solid #ecdcdf;
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
-            color: #78696c;
+            background: var(--tier-color);
+            color: var(--tier-ink);
+            font-size: calc(var(--node) * .38);
+            font-weight: 700;
         }
-
-        .journey-step.is-done {
-            border-color: #d97789;
-            background: #d97789;
-            color: #fff;
+        .journey-node.tier-diamond .journey-face {
+            border-radius: 0;
+            padding-bottom: 12%;
+            background: linear-gradient(160deg, #8fe3ff 0%, #2cb1f0 55%, #0c7fd6 100%);
+            clip-path: polygon(20% 0, 80% 0, 100% 38%, 50% 100%, 0 38%);
         }
+        .journey-node.is-upcoming .journey-face { opacity: .4; }
+        .journey-node.is-next .journey-face { opacity: .8; }
+        .journey-node.is-next::before,
+        .journey-node.is-current::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 2px dashed #d97789;
+        }
+        .journey-node.is-current::before { border-style: solid; box-shadow: 0 0 0 4px rgb(217 119 137 / 18%); }
 
-        .journey-step.is-next {
-            border-color: #c65e70;
-            color: #c65e70;
+        .journey-gift {
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            z-index: 1;
+            display: grid;
+            place-items: center;
+            width: 20px;
+            height: 20px;
+            border: 1.5px solid #d97789;
+            border-radius: 50%;
+            background: #fff;
+            font-size: 11px;
+            line-height: 1;
+        }
+        .journey-node.is-done .journey-gift { background: #d97789; }
+
+        .journey-chip {
+            display: grid;
+            place-items: center;
+            flex: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--tier-color);
+            color: var(--tier-ink);
+            font-size: .8rem;
             font-weight: 700;
         }
 
-        .journey-reward {
-            border-top: 1px solid #f3dfe2;
+        .journey-tier { height: 100%; padding: 1rem; border: 1px solid #f3dfe2; border-radius: .75rem; }
+        .journey-tier.is-current { border-color: var(--tier-color); box-shadow: 0 0 0 2px var(--tier-color); }
+
+        /* ── Member summary ─────────────────────────────────────── */
+        .member-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; }
+        .member-avatar { flex: none; width: 4.5rem; height: 4.5rem; border-radius: 50%; object-fit: cover; }
+        .member-identity { flex: 1 1 11rem; min-width: 0; }
+        .member-identity h1 { overflow-wrap: anywhere; }
+
+        .member-metrics { display: flex; align-items: center; gap: 1.25rem; margin-left: auto; }
+        .member-count { text-align: right; }
+        .member-count-number { display: block; color: #c65e70; font-size: clamp(2.5rem, 8vw, 3.75rem); font-weight: 700; line-height: 1; }
+        .member-count-label { display: block; margin-top: .35rem; font-size: .85rem; color: #6c757d; }
+
+        @media (max-width: 575.98px) {
+            .member-metrics { flex-basis: 100%; justify-content: space-between; margin-left: 0; padding-top: 1rem; border-top: 1px solid #f3dfe2; }
+            .member-count { display: flex; align-items: baseline; gap: .75rem; text-align: left; }
+            .member-count-label { margin-top: 0; }
         }
     </style>
 </head>
@@ -78,6 +193,7 @@
         <header class="d-flex align-items-center justify-content-between gap-3 mb-5">
             <a class="membership-header fw-bold text-decoration-none" href="{{ route('index') }}">NEOPHOTO</a>
             <div class="d-flex align-items-center gap-2">
+                <a class="btn btn-outline-secondary" href="{{ route('members.profile.edit') }}">Edit profile</a>
                 <a class="btn btn-outline-secondary" href="{{ route('index') }}">Home</a>
                 <form method="POST" action="{{ route('membership.logout') }}">
                     @csrf
@@ -86,137 +202,172 @@
             </div>
         </header>
 
-        <section class="membership-card card" aria-labelledby="membership-title">
-            <div class="card-body p-4 p-md-5 text-center">
-                @if ($membership->profile_picture_path)
+        <section class="membership-card card mb-4" aria-labelledby="membership-title">
+            <div class="card-body p-4 p-md-5">
+                <div class="member-summary">
                     <img
-                        class="rounded-circle mb-3"
-                        src="{{ route('members.profile-picture') }}"
-                        alt="Member profile picture"
-                        width="112"
-                        height="112"
-                        style="object-fit: cover;"
+                        class="member-avatar"
+                        src="{{ $profilePicture }}"
+                        alt="{{ $membership->name ?: 'Member' }} profile picture"
+                        width="72"
+                        height="72"
                     >
-                @else
-                    <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3 text-secondary" style="width: 112px; height: 112px;">
-                        Member
+                    <div class="member-identity">
+                        <h1 id="membership-title" class="h3 mb-1">{{ $membership->name ?: 'Member' }}</h1>
+                        @if ($membership->phone)
+                            <p class="text-secondary mb-0">{{ $membership->phone }}</p>
+                        @endif
+                        @if ($membership->email)
+                            <p class="small text-secondary mb-0 text-break">{{ $membership->email }}</p>
+                        @endif
                     </div>
-                @endif
-                <form
-                    class="mx-auto mb-4"
-                    style="max-width: 420px;"
-                    method="POST"
-                    action="{{ route('members.profile-picture.update') }}"
-                    enctype="multipart/form-data"
-                >
-                    @csrf
-                    <label class="form-label d-block fw-bold" for="profile_picture">Profile picture</label>
-                    <div class="input-group">
-                        <input
-                            class="form-control"
-                            id="profile_picture"
-                            name="profile_picture"
-                            type="file"
-                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                            required
-                        >
-                        <button class="btn btn-membership" type="submit">Upload</button>
-                    </div>
-                    <small class="form-text text-secondary">JPG, PNG, or WebP; up to 20 MB. Stored images are optimized to 2 MB or less.</small>
-                    @error('profile_picture')
-                        <p class="text-danger small mt-2 mb-0">{{ $message }}</p>
-                    @enderror
-                    @if (session('status'))
-                        <p class="text-success small mt-2 mb-0">{{ session('status') }}</p>
-                    @endif
-                </form>
 
-                <h1 id="membership-title" class="h2 mb-2">Welcome, {{ $membership->name ?: 'Member' }}</h1>
-                <p class="text-secondary mb-4">{{ $membership->email }}</p>
-                <p
-                    class="purchase-total fw-bold mb-2"
-                    aria-label="{{ $membership->paid_purchases_count }} {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}"
-                >
-                    {{ number_format($membership->paid_purchases_count) }}
-                </p>
-                <p class="text-secondary mb-0">
-                    {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}
-                </p>
-                <p class="small text-secondary mt-2 mb-0">{{ $membership->phone }}</p>
+                    <div class="member-metrics">
+                        <div
+                            class="member-count"
+                            aria-label="{{ $membership->paid_purchases_count }} {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}"
+                        >
+                            <span class="member-count-number">{{ number_format($membership->paid_purchases_count) }}</span>
+                            <span class="member-count-label">
+                                {{ $membership->paid_purchases_count === 1 ? 'successful purchase' : 'successful purchases' }}
+                            </span>
+                        </div>
+                        <span class="badge rounded-pill journey-tier-badge tier-{{ $journey['tier'] }}">
+                            {{ $journey['tierLabel'] }} member
+                        </span>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section class="membership-card card my-4" aria-labelledby="journey-title">
+        @php
+            $journeyRows = [array_slice($journey['steps'], 0, 5), array_slice($journey['steps'], 5)];
+            $plural = fn (int $n): string => $n === 1 ? '1 purchase' : $n.' purchases';
+        @endphp
+
+        <section class="membership-card card mb-4 journey-card" aria-labelledby="journey-title">
             <div class="card-body p-4 p-md-5">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
                     <h2 id="journey-title" class="h4 mb-0">My Journey</h2>
-                    <span class="badge rounded-pill bg-light text-dark">{{ $journey['tierLabel'] }} member</span>
                 </div>
-                <p class="mb-1">
-                    <strong>{{ $journey['count'] }}</strong>
-                    {{ $journey['count'] === 1 ? 'paid purchase' : 'paid purchases' }} this cycle
-                </p>
-                <p class="small text-secondary mb-3">
-                    Journey resets {{ $journey['cycleEnd']->format('d M Y') }}
-                    ({{ $journey['daysLeft'] }} {{ $journey['daysLeft'] === 1 ? 'day' : 'days' }} left).
-                </p>
+                <p class="text-secondary mb-4">Every paid purchase moves you one step further and unlocks rewards and member discounts.</p>
 
-                <ol class="list-unstyled d-flex flex-wrap gap-2 mb-4" aria-label="Purchase journey progress">
-                    @foreach ($journey['steps'] as $step)
-                        <li>
-                            <span
-                                class="journey-step is-{{ $step['status'] }}"
-                                aria-label="Purchase {{ $step['number'] }}: {{ $step['status'] }}"
-                                title="{{ $step['reward'] ?? 'Purchase '.$step['number'] }}"
-                            >{{ $step['number'] }}</span>
-                        </li>
-                    @endforeach
-                </ol>
-
-                @if ($journey['nextReward'])
-                    <p class="alert alert-light border">
-                        Next reward: <strong>{{ $journey['nextReward']['label'] }}</strong>
-                        at purchase {{ $journey['nextReward']['step'] }}
-                        ({{ $journey['nextReward']['remaining'] }} to go).
-                    </p>
-                @else
-                    <p class="alert alert-light border">You have unlocked all current journey rewards.</p>
-                @endif
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="journey-stat">
+                            <span class="journey-stat-label">This cycle</span>
+                            <p class="h4 fw-bold mb-1">{{ $plural($journey['count']) }}</p>
+                            <p class="small text-secondary mb-0">{{ $journey['tierLabel'] }}: {{ $journey['perk'] }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="journey-stat">
+                            <span class="journey-stat-label">Next reward</span>
+                            @if ($journey['nextReward'])
+                                <p class="h6 fw-bold mb-1">{{ $journey['nextReward']['label'] }}</p>
+                                <p class="small text-secondary mb-0">
+                                    At purchase #{{ $journey['nextReward']['step'] }} · {{ $plural($journey['nextReward']['remaining']) }} to go
+                                </p>
+                            @else
+                                <p class="h6 fw-bold mb-1">All rewards unlocked</p>
+                                <p class="small text-secondary mb-0">More rewards are coming. Keep going!</p>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="journey-stat">
+                            <span class="journey-stat-label">Journey resets</span>
+                            <p class="h6 fw-bold mb-1">{{ $journey['cycleEnd']->format('d M Y') }}</p>
+                            <p class="small text-secondary mb-0">
+                                {{ $journey['daysLeft'] === 1 ? '1 day' : $journey['daysLeft'].' days' }} left · every 12 months from registration
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 @if ($journey['nextTier'])
-                    <p class="mb-4">
-                        {{ $journey['nextTier']['remaining'] }} more
-                        {{ $journey['nextTier']['remaining'] === 1 ? 'purchase' : 'purchases' }} until
-                        {{ $journey['nextTier']['label'] }}.
+                    <p class="mb-3">
+                        <strong>{{ $plural($journey['nextTier']['remaining']) }}</strong> to go until
+                        <strong>{{ $journey['nextTier']['label'] }}</strong> (purchase #{{ $journey['nextTier']['step'] }}).
                     </p>
                 @else
-                    <p class="mb-4">You have reached the top tier: {{ $journey['discount'] }}% off every transaction.</p>
+                    <p class="mb-3">You have reached the top tier. Enjoy <strong>{{ $journey['discount'] }}% off</strong> every transaction.</p>
                 @endif
 
-                <h3 class="h6 fw-bold">Rewards</h3>
+                <div class="journey-path">
+                    @foreach ($journeyRows as $rowIndex => $rowSteps)
+                        <ol class="journey-row {{ $rowIndex === 1 ? 'is-reverse' : '' }}" @if ($rowIndex === 1) start="6" @endif>
+                            @foreach ($rowSteps as $step)
+                                <li class="journey-step">
+                                    <span class="journey-node tier-{{ $step['tier'] }} is-{{ $step['status'] === 'done' ? 'done' : ($step['status'] === 'next' ? 'next' : 'upcoming') }} {{ $step['current'] ? 'is-current' : '' }}">
+                                        <span class="journey-face">{{ $step['number'] }}</span>
+                                        @if ($step['reward'])
+                                            <span class="journey-gift" aria-hidden="true">🎁</span>
+                                        @endif
+                                        <span class="visually-hidden">
+                                            Purchase {{ $step['number'] }}{{ $step['number'] === 11 ? ' and beyond' : '' }}{{ $step['reward'] ? ': '.$step['reward'] : '' }},
+                                            {{ $step['status'] === 'done' ? 'completed' : ($step['status'] === 'next' ? 'next step' : 'upcoming') }}.
+                                        </span>
+                                    </span>
+                                    @if (! $loop->last)
+                                        <span class="journey-link {{ $step['number'] < $journey['count'] ? 'is-done' : '' }}" aria-hidden="true"></span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+
+                        @if ($rowIndex === 0)
+                            <div class="journey-drop {{ $journey['count'] > 5 ? 'is-done' : '' }}" aria-hidden="true"></div>
+                        @endif
+                    @endforeach
+                </div>
+                <p class="small text-secondary mt-3 mb-4">
+                    🎁 marks a reward step · the dashed ring is your next step · step 11 and beyond keeps you at Diamond.
+                </p>
+
+                <h3 class="h6 fw-bold mb-2">Rewards</h3>
                 <ul class="list-unstyled mb-4">
                     @foreach ($journey['rewards'] as $reward)
-                        <li class="journey-reward d-flex align-items-center justify-content-between gap-3 py-2">
-                            <span>Purchase {{ $reward['step'] }}: {{ $reward['label'] }}</span>
-                            <span class="badge rounded-pill {{ $reward['unlocked'] ? 'bg-success' : 'bg-light text-dark' }}">
-                                {{ $reward['unlocked'] ? 'Unlocked' : $reward['remaining'].' to go' }}
+                        <li class="d-flex align-items-center justify-content-between gap-3 border-top py-2">
+                            <span class="d-flex align-items-center gap-3">
+                                <span class="journey-chip tier-{{ $reward['tier'] }}">{{ $reward['step'] }}</span>
+                                <span>{{ $reward['label'] }}</span>
                             </span>
+                            @if ($reward['unlocked'])
+                                <span class="badge rounded-pill bg-success">Unlocked</span>
+                            @else
+                                <span class="badge rounded-pill bg-light text-dark">{{ $plural($reward['remaining']) }} to go</span>
+                            @endif
                         </li>
                     @endforeach
+                    <li class="border-top pt-2 small text-secondary">More rewards after purchase #11.</li>
                 </ul>
 
-                <h3 class="h6 fw-bold">Membership tiers</h3>
+                <h3 class="h6 fw-bold mb-2">Membership tiers</h3>
                 <div class="row g-3">
                     @foreach ($journey['tiers'] as $tier)
                         <div class="col-md-4">
-                            <div class="border rounded p-3 h-100">
-                                <strong>{{ $tier['label'] }}{{ $tier['current'] ? ' · Your tier' : '' }}</strong>
-                                <p class="small mb-1">Purchases {{ $tier['range'] }}</p>
-                                <p class="small text-secondary mb-0">{{ $tier['summary'] }}</p>
+                            <div class="journey-tier tier-{{ $tier['key'] }} {{ $tier['current'] ? 'is-current' : '' }}">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                    <span class="d-flex align-items-center gap-2">
+                                        <span class="journey-chip tier-{{ $tier['key'] }}" aria-hidden="true"></span>
+                                        <strong>{{ $tier['label'] }}</strong>
+                                    </span>
+                                    @if ($tier['current'])
+                                        <span class="badge rounded-pill bg-dark">Your tier</span>
+                                    @endif
+                                </div>
+                                <p class="small text-secondary mb-1">Purchases {{ $tier['range'] }}</p>
+                                <p class="small mb-0">{{ $tier['summary'] }}</p>
                             </div>
                         </div>
                     @endforeach
                 </div>
+
+                <p class="small text-secondary mt-4 mb-0">
+                    Your journey restarts every 12 months from the date you registered
+                    ({{ $journey['cycleStart']->format('d M Y') }} – {{ $journey['cycleEnd']->format('d M Y') }} is the current cycle).
+                </p>
             </div>
         </section>
 

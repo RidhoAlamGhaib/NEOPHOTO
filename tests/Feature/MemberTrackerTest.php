@@ -13,27 +13,38 @@ test('guests are redirected from member account pages', function () {
     $this->get(route('members.index'))
         ->assertRedirect(route('login'));
 
-    $this->get(route('members.profile-picture'))
+    $this->get(route('members.profile.edit'))
         ->assertRedirect(route('login'));
 
-    $this->post(route('members.profile-picture.update'))
+    $this->patch(route('members.profile.details.update'))
         ->assertRedirect(route('login'));
+
+    $this->post(route('members.profile.update'))
+        ->assertRedirect(route('login'));
+
+    $this->get('/members/profile-picture')
+        ->assertNotFound();
 });
 
 test('staff accounts cannot view or update member profile pictures', function () {
     $staff = User::factory()->create();
 
     $this->actingAs($staff)
-        ->get(route('members.profile-picture'))
+        ->get(route('members.profile.edit'))
         ->assertRedirect(route('login'));
 
     $this->actingAs($staff)
-        ->post(route('members.profile-picture.update'))
+        ->patch(route('members.profile.details.update'))
+        ->assertRedirect(route('login'));
+
+    $this->actingAs($staff)
+        ->post(route('members.profile.update'))
         ->assertRedirect(route('login'));
 });
 
 test('members can upload compressed private profile pictures and replace their previous picture', function () {
     Storage::fake('local');
+    Storage::disk('local')->put('members/profile-pictures/default.jpg', 'default image');
 
     $membership = CustomerMembership::create([
         'email' => 'member@example.com',
@@ -43,6 +54,18 @@ test('members can upload compressed private profile pictures and replace their p
     $previousPath = "members/profile-pictures/{$membership->getKey()}/old.webp";
     $membership->update(['profile_picture_path' => $previousPath]);
     Storage::disk('local')->put($previousPath, 'previous image');
+
+    $this->actingAs($membership, 'member')
+        ->get(route('members.profile.edit'))
+        ->assertSee('Edit profile')
+        ->assertSee('name="profile_picture"', false)
+        ->assertSee('base64,', false)
+        ->assertSee('Membership details')
+        ->assertSee('data-edit-field="name"', false)
+        ->assertSee('data-edit-field="birthday"', false)
+        ->assertSee('data-edit-field="job"', false)
+        ->assertDontSee('data-edit-field="email"', false)
+        ->assertDontSee('data-edit-field="phone"', false);
 
     mt_srand(1234);
     $sourceImage = imagecreatetruecolor(1800, 1800);
@@ -60,12 +83,12 @@ test('members can upload compressed private profile pictures and replace their p
     expect(strlen($sourceImageContents))->toBeGreaterThan(2 * 1024 * 1024);
 
     $response = $this->actingAs($membership, 'member')
-        ->post(route('members.profile-picture.update'), [
+        ->post(route('members.profile.update'), [
             'profile_picture' => UploadedFile::fake()
                 ->createWithContent('new-profile.png', $sourceImageContents),
         ]);
 
-    $response->assertRedirect(route('members.index'));
+    $response->assertRedirect(route('members.profile.edit'));
     $membership->refresh();
     $newPath = $membership->profile_picture_path;
 
@@ -76,16 +99,161 @@ test('members can upload compressed private profile pictures and replace their p
     expect(Storage::disk('local')->mimeType($newPath))->toBe('image/webp');
 
     $this->actingAs($membership, 'member')
-        ->get(route('members.profile-picture'))
-        ->assertOk()
-        ->assertHeader('Content-Type', 'image/webp')
-        ->assertHeader('Cache-Control', 'max-age=3600, private')
-        ->assertHeader('X-Content-Type-Options', 'nosniff');
+        ->get(route('members.profile.edit'))
+        ->assertSee('data:image/webp;base64,', false)
+        ->assertSee('Save new picture');
 
     $this->actingAs($membership, 'member')
         ->get(route('members.index'))
-        ->assertSee(route('members.profile-picture'), false)
-        ->assertSee('Upload');
+        ->assertSee(route('members.profile.edit'))
+        ->assertSee('Edit profile')
+        ->assertSee('class="member-avatar"', false)
+        ->assertSee('data:image/webp;base64,', false)
+        ->assertDontSee('Save new picture');
+});
+
+test('members without a profile picture see the default picture embedded in their profile page', function () {
+    Storage::fake('local');
+    $defaultPicture = imagecreatetruecolor(1, 1);
+    ob_start();
+    imagejpeg($defaultPicture);
+    $defaultPictureContents = ob_get_clean();
+    imagedestroy($defaultPicture);
+    Storage::disk('local')->put(
+        'members/profile-pictures/default.jpg',
+        $defaultPictureContents,
+    );
+
+    $membership = CustomerMembership::create([
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'password' => 'password',
+    ]);
+
+    $this->actingAs($membership, 'member')
+        ->get(route('members.profile.edit'))
+        ->assertSee('data:image/jpeg;base64,', false);
+
+    $this->actingAs($membership, 'member')
+        ->get(route('members.index'))
+        ->assertSee('class="member-avatar"', false)
+        ->assertSee('data:image/jpeg;base64,', false);
+});
+
+test('members can update profile fields and link a changed phone to the latest customer', function () {
+    $olderCustomer = customer::create([
+        'name' => 'Older Customer',
+        'email' => 'older@example.com',
+        'telp' => '08123456789',
+    ]);
+    customer::create([
+        'name' => 'Middle Customer',
+        'email' => 'middle@example.com',
+        'telp' => '08987654321',
+    ]);
+    $latestCustomer = customer::create([
+        'name' => 'Latest Customer',
+        'email' => 'latest@example.com',
+        'telp' => '08987654321',
+    ]);
+    $membership = CustomerMembership::create([
+        'name' => 'Old Name',
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'customer_id' => $olderCustomer->id,
+        'password' => 'password',
+    ]);
+
+    $response = $this->actingAs($membership, 'member')
+        ->patch(route('members.profile.details.update'), [
+            'name' => 'Updated Member',
+            'email' => 'member@example.com',
+            'phone' => '089-876-54321',
+            'birthday' => '1990-04-15',
+            'job' => 'Photographer',
+        ]);
+
+    $response->assertRedirect(route('members.profile.edit'));
+    $response->assertSessionHas('profile_status', 'Profile details updated.');
+    $this->assertDatabaseHas('customer_memberships', [
+        'id' => $membership->id,
+        'name' => 'Updated Member',
+        'email' => 'member@example.com',
+        'phone' => '08987654321',
+        'customer_id' => $latestCustomer->id,
+        'job' => 'Photographer',
+    ]);
+    expect($membership->fresh()->birthday->toDateString())->toBe('1990-04-15');
+
+    $this->actingAs($membership->fresh(), 'member')
+        ->get(route('members.profile.edit'))
+        ->assertSee('Updated Member')
+        ->assertSee('Photographer');
+});
+
+test('member profile update creates and links a customer when a changed phone has no match', function () {
+    $membership = CustomerMembership::create([
+        'name' => 'Existing Member',
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'password' => 'password',
+    ]);
+
+    $response = $this->actingAs($membership, 'member')
+        ->patch(route('members.profile.details.update'), [
+            'name' => 'Updated Member',
+            'email' => 'updated@example.com',
+            'phone' => '08987654321',
+            'birthday' => '',
+            'job' => '',
+        ]);
+
+    $response->assertRedirect(route('members.profile.edit'));
+    $createdCustomer = customer::query()->where('telp', '08987654321')->firstOrFail();
+    $this->assertDatabaseHas('customer_memberships', [
+        'id' => $membership->id,
+        'customer_id' => $createdCustomer->id,
+        'birthday' => null,
+        'job' => null,
+    ]);
+    expect($createdCustomer->name)->toBe('Updated Member');
+    expect($createdCustomer->email)->toBe('updated@example.com');
+});
+
+test('member profile update rejects duplicate contact details and a future birthday', function () {
+    $membership = CustomerMembership::create([
+        'name' => 'Existing Member',
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'birthday' => '1990-04-15',
+        'job' => 'Photographer',
+        'password' => 'password',
+    ]);
+    CustomerMembership::create([
+        'name' => 'Another Member',
+        'email' => 'another@example.com',
+        'phone' => '08987654321',
+        'password' => 'password',
+    ]);
+
+    $response = $this->actingAs($membership, 'member')
+        ->patch(route('members.profile.details.update'), [
+            'name' => 'Changed Name',
+            'email' => 'another@example.com',
+            'phone' => '08987654321',
+            'birthday' => '2999-01-01',
+            'job' => 'Changed Job',
+        ]);
+
+    $response->assertSessionHasErrors(['email', 'phone', 'birthday']);
+    $this->assertDatabaseHas('customer_memberships', [
+        'id' => $membership->id,
+        'name' => 'Existing Member',
+        'email' => 'member@example.com',
+        'phone' => '08123456789',
+        'job' => 'Photographer',
+    ]);
+    expect($membership->fresh()->birthday->toDateString())->toBe('1990-04-15');
 });
 
 test('members cannot save invalid or oversized profile pictures', function () {
@@ -98,13 +266,13 @@ test('members cannot save invalid or oversized profile pictures', function () {
     ]);
 
     $this->actingAs($membership, 'member')
-        ->post(route('members.profile-picture.update'), [
+        ->post(route('members.profile.update'), [
             'profile_picture' => UploadedFile::fake()->create('profile.pdf', 100, 'application/pdf'),
         ])
         ->assertSessionHasErrors('profile_picture');
 
     $this->actingAs($membership, 'member')
-        ->post(route('members.profile-picture.update'), [
+        ->post(route('members.profile.update'), [
             'profile_picture' => UploadedFile::fake()
                 ->image('oversized.png', 120, 120)
                 ->size(20481),
@@ -112,7 +280,7 @@ test('members cannot save invalid or oversized profile pictures', function () {
         ->assertSessionHasErrors('profile_picture');
 
     $this->actingAs($membership, 'member')
-        ->post(route('members.profile-picture.update'), [
+        ->post(route('members.profile.update'), [
             'profile_picture' => UploadedFile::fake()->image('too-wide.png', 4097, 100),
         ])
         ->assertSessionHasErrors('profile_picture');
@@ -219,6 +387,7 @@ test('members see purchase and journey history matched by phone before registrat
         'name' => 'New Member',
         'email' => 'new-member@example.com',
         'phone' => '08123456789',
+        'customer_id' => $customer->id,
         'password' => 'password',
         'created_at' => '2026-11-06 11:00:00',
     ]);
@@ -226,18 +395,27 @@ test('members see purchase and journey history matched by phone before registrat
     $this->actingAs($membership, 'member')
         ->get(route('members.index'))
         ->assertOk()
-        ->assertSee('aria-label="3 successful purchases"', false)
-        ->assertSee('<strong>2</strong>', false)
-        ->assertSee('paid purchases this cycle')
+        ->assertSee('aria-label="2 successful purchases"', false)
+        ->assertSee('1 purchase')
         ->assertSee('My Journey')
         ->assertSee("Purchase #{$olderPurchase->id}")
         ->assertSee("Purchase #{$cyclePurchase->id}")
-        ->assertSee("Purchase #{$samePhonePurchase->id}")
+        ->assertDontSee("Purchase #{$samePhonePurchase->id}")
         ->assertDontSee("Purchase #{$pendingPurchase->id}")
         ->assertDontSee("Purchase #{$otherPurchase->id}");
 });
 
-test('members without matching paid purchases see empty trackers', function () {
+test('members without a linked customer do not inherit purchases by phone number', function () {
+    $customer = customer::create([
+        'name' => 'Same Phone Customer',
+        'email' => 'same-phone@example.com',
+        'telp' => '08123456789',
+    ]);
+    $purchase = Order::create([
+        'customer_id' => $customer->id,
+        'status' => 'paid',
+        'order-UC' => 'unlinked-member-phone',
+    ]);
     $membership = CustomerMembership::create([
         'name' => 'New Member',
         'email' => 'new-member@example.com',
@@ -251,8 +429,7 @@ test('members without matching paid purchases see empty trackers', function () {
         ->assertSee('aria-label="0 successful purchases"', false)
         ->assertSee('My Journey')
         ->assertSee('No completed purchases yet.')
-        ->assertSee('<strong>0</strong>', false)
-        ->assertSee('paid purchases this cycle');
+        ->assertDontSee("Purchase #{$purchase->id}");
 });
 
 test('the database prevents duplicate member phone numbers', function () {

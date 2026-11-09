@@ -26,12 +26,15 @@ Route::post('/membership/logout', [CustomerMembershipController::class, 'logout'
 Route::get('/members', [MemberController::class, 'index'])
     ->middleware('auth:member')
     ->name('members.index');
-Route::get('/members/profile-picture', [MemberController::class, 'profilePicture'])
+Route::get('/members/profile/edit', [MemberController::class, 'editProfile'])
     ->middleware('auth:member')
-    ->name('members.profile-picture');
-Route::post('/members/profile-picture', [MemberController::class, 'updateProfilePicture'])
+    ->name('members.profile.edit');
+Route::patch('/members/profile/edit', [MemberController::class, 'updateProfile'])
+    ->middleware('auth:member')
+    ->name('members.profile.details.update');
+Route::post('/members/profile/edit', [MemberController::class, 'updateProfilePicture'])
     ->middleware(['auth:member', 'throttle:6,1'])
-    ->name('members.profile-picture.update');
+    ->name('members.profile.update');
 Route::view('/about', 'about')->name('about');
 Route::get('/db', function () {
     return redirect('https://docs.google.com/spreadsheets/d/1q6eQ7FPGr89_bXqp8Kf_ra1E_1omKGfd/edit?gid=512633841#gid=512633841');
