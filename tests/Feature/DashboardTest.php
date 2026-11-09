@@ -7,10 +7,13 @@ test('guests are redirected to the login page', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('authenticated users can visit the dashboard', function () {
-    $user = User::factory()->create();
+test('dashboard access redirects users without an allowed outlet to login', function (?string $outlet) {
+    $user = User::factory()->create(['outlet' => $outlet]);
     $this->actingAs($user);
 
-    $response = $this->get(route('dashboard'));
-    $response->assertOk();
-});
+    $this->get(route('dashboard'))->assertRedirect('/login');
+    $this->get(route('orders.export'))->assertRedirect('/login');
+})->with([
+    'outlet staff' => 'Blok M',
+    'user without outlet' => null,
+]);

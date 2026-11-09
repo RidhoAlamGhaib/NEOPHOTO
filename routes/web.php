@@ -1,16 +1,37 @@
 <?php
 
+use App\Http\Controllers\BoothController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerMembershipController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProductController;
+use App\Http\Middleware\EnsureDashboardAccess;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\BoothController;
 
 // Route::get('/', [Controller::class, 'index']);
 Route::get('/store', [ProductController::class, 'view'])->name('store')->middleware('auth');
 Route::get('/', function () {
     return view('index');
 })->name('index');
+Route::post('/membership/register', [CustomerMembershipController::class, 'register'])
+    ->middleware('throttle:6,1')
+    ->name('membership.register');
+Route::post('/membership/login', [CustomerMembershipController::class, 'login'])
+    ->middleware('throttle:6,1')
+    ->name('membership.login');
+Route::post('/membership/logout', [CustomerMembershipController::class, 'logout'])
+    ->middleware('auth:member')
+    ->name('membership.logout');
+Route::get('/members', [MemberController::class, 'index'])
+    ->middleware('auth:member')
+    ->name('members.index');
+Route::get('/members/profile-picture', [MemberController::class, 'profilePicture'])
+    ->middleware('auth:member')
+    ->name('members.profile-picture');
+Route::post('/members/profile-picture', [MemberController::class, 'updateProfilePicture'])
+    ->middleware(['auth:member', 'throttle:6,1'])
+    ->name('members.profile-picture.update');
 Route::view('/about', 'about')->name('about');
 Route::get('/db', function () {
     return redirect('https://docs.google.com/spreadsheets/d/1q6eQ7FPGr89_bXqp8Kf_ra1E_1omKGfd/edit?gid=512633841#gid=512633841');
@@ -19,7 +40,9 @@ Route::get('/appr', [ProductController::class, 'updateappr'])->middleware('auth'
 Route::get('/run', [ProductController::class, 'runcommand'])->middleware('auth');
 Route::get('/login', [CustomerController::class, 'index'])->name('login');
 Route::get('/logout', [CustomerController::class, 'logout'])->name('customer.logout');
-Route::get('/dashboard', [CustomerController::class, 'dashboard'])->name('dashboard');
+Route::get('/dashboard', [CustomerController::class, 'dashboard'])
+    ->middleware(EnsureDashboardAccess::class)
+    ->name('dashboard');
 Route::get('/checkout/{id}', [ProductController::class, 'index'])->name('checkout')->middleware('auth');
 Route::get('/test/{id}', [ProductController::class, 'test'])->name('test')->middleware('auth');
 Route::get('/customer', [CustomerController::class, 'index'])->name('customer');
@@ -28,7 +51,7 @@ Route::get('/order/export/{id}', [CustomerController::class, 'exportSingle'])
     ->middleware('auth');
 Route::get('/dashboard/export-orders', [CustomerController::class, 'export'])
     ->name('orders.export')
-    ->middleware('auth');
+    ->middleware(['auth', EnsureDashboardAccess::class]);
 
 Route::get('/booth/bridge', [BoothController::class, 'bridge']);
 Route::post('/booth/session', [BoothController::class, 'session'])->middleware('throttle:120,1');
