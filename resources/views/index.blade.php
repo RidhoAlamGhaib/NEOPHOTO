@@ -560,7 +560,8 @@
         <li class="nav-item"><a class="nav-link" href="{{ route('about') }}">Tentang Kami</a></li>
       </ul>
       <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
-        @if (auth('member')->check())
+        <!-- LOGIN + REGISTER BUTTONS -->
+        <!-- @if (auth('member')->check())
           <span class="small fw-bold text-nowrap">Hello, {{ auth('member')->user()->name ?: auth('member')->user()->phone }}</span>
           <a href="{{ route('members.index') }}" class="btn-neo-primary" style="padding:9px 18px;font-size:13px">Membership</a>
           <form method="POST" action="{{ route('membership.logout') }}">
@@ -574,7 +575,7 @@
           <button type="button" class="btn-neo-primary" data-bs-toggle="modal" data-bs-target="#membershipModal" data-membership-mode="register" style="padding:9px 18px;font-size:13px">
             Daftar
           </button>
-        @endif
+        @endif -->
         <!-- <a href="#outlet" class="btn-neo-primary" style="padding:9px 18px;font-size:13px">
           <i class="fas fa-store"></i> Cari Outlet
         </a> -->
