@@ -8,8 +8,11 @@ use App\Models\OrderItem;
 use App\Models\OrderItemAddon;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Livewire\WithPagination;
+use App\Services\MarketingDashboardAnalytics;
 // use Livewire\WithFileDownloads;
 
 new class extends Component
@@ -20,6 +23,7 @@ new class extends Component
 
     public string $searchCustomer = '';
     public string $period         = 'weekly'; // daily | weekly | monthly
+    public array $marketingInsights = [];
     public array $generationMessages = [];
     public array $generationTypes = [];
     public bool $showManualCodeForm = false;
@@ -131,8 +135,17 @@ new class extends Component
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-    public function mount(): void
+    public function mount(Request $request, MarketingDashboardAnalytics $analytics): void
     {
+        $validated = $request->validate([
+            'period' => ['sometimes', Rule::in(['daily', 'weekly', 'monthly', '3months', '6months', 'all'])],
+            'outlet' => ['sometimes', Rule::in(array_merge(['all'], $analytics->outletOptions()))],
+        ]);
+        $this->marketingInsights = $analytics->getInsights(
+            $validated['period'] ?? 'weekly',
+            $validated['outlet'] ?? 'all',
+        );
+
         $this->generationTypes = product::whereNot('type', 'addon')
             ->where('type', '!=', '111')
             ->distinct()
@@ -688,6 +701,10 @@ public function frame($x): void
                 </ul>
             </nav>
         </div>
+
+        @include('dashboard.partials.marketing-insights', ['insights' => $marketingInsights])
+
+        <h3 class="page-title mb-3">Periodic sales, orders &amp; visitors</h3>
 
         {{-- Period Toggle --}}
         <div class="d-flex align-items-center mb-4 gap-2">

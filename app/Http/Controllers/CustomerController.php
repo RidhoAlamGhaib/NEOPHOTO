@@ -2,26 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorecustomerRequest;
+use App\Http\Requests\UpdatecustomerRequest;
 use App\Models\customer;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Http\Requests\StorecustomerRequest;
-use App\Http\Requests\UpdatecustomerRequest;
 use App\Services\GoogleSheetsService;
+use App\Services\MarketingDashboardAnalytics;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
     private function rowFromOrder(Order $order): array
     {
         $items = $order->items
-            ->map(fn($i) => optional($i->product)->name)
+            ->map(fn ($i) => optional($i->product)->name)
             ->filter()->implode(', ');
 
         $addons = $order->items
-            ->flatMap(fn($i) => $i->addons->map(
-                fn($a) => optional($a->addon)->name . ' x' . $a->qty
+            ->flatMap(fn ($i) => $i->addons->map(
+                fn ($a) => optional($a->addon)->name.' x'.$a->qty
             ))->filter()->implode(', ');
 
         return [
@@ -31,7 +35,7 @@ class CustomerController extends Controller
             $items,
             $addons,
             $order->apprcode,
-            $order->items->map(fn($i) => $i->code)->implode(', '),
+            $order->items->map(fn ($i) => $i->code)->implode(', '),
             optional($order->promo)->nama ?? '—',
             $order->total,
             $order->created_at->format('Y-m-d H:i:s'),
@@ -72,7 +76,7 @@ class CustomerController extends Controller
 
     public function export(Request $request)
     {
-        $period         = $request->query('period', 'weekly');
+        $period = $request->query('period', 'weekly');
         $searchCustomer = $request->query('search', '');
 
         $query = Order::with([
@@ -89,31 +93,32 @@ class CustomerController extends Controller
             $query->where('apprcode', 'LIKE', '%asd%');
         } else {
             $query->where('apprcode', 'NOT LIKE', '%qwe%')
-                  ->where('apprcode', '!=', 'asdfgh');
+                ->where('apprcode', '!=', 'asdfgh');
         }
 
         // Search filter
-        if (!empty($searchCustomer)) {
-            $orderIds    = OrderItem::where('code', 'LIKE', "%{$searchCustomer}%")->pluck('order_id');
+        if (! empty($searchCustomer)) {
+            $orderIds = OrderItem::where('code', 'LIKE', "%{$searchCustomer}%")->pluck('order_id');
             $customerIds = customer::where('name', 'LIKE', "%{$searchCustomer}%")->pluck('id');
 
             $query->where(function ($q) use ($searchCustomer, $customerIds, $orderIds) {
                 $q->whereIn('customer_id', $customerIds)
-                  ->orWhere('apprcode', 'LIKE', "%{$searchCustomer}%")
-                  ->orWhereIn('id', $orderIds)
-                  ->orWhere('outlet', 'LIKE', "%{$searchCustomer}%");
+                    ->orWhere('apprcode', 'LIKE', "%{$searchCustomer}%")
+                    ->orWhereIn('id', $orderIds)
+                    ->orWhere('outlet', 'LIKE', "%{$searchCustomer}%");
             });
         } elseif ($period !== 'all') {
             $now = \Carbon\Carbon::now();
             [$curStart, $curEnd] = match ($period) {
-                'daily'   => [$now->copy()->startOfDay(),   $now->copy()->endOfDay()],
+                'daily' => [$now->copy()->startOfDay(),   $now->copy()->endOfDay()],
                 'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-                default   => [$now->copy()->startOfWeek(),  $now->copy()->endOfWeek()],
+                default => [$now->copy()->startOfWeek(),  $now->copy()->endOfWeek()],
             };
             $query->whereBetween('created_at', [$curStart, $curEnd]);
         }
 
         $orders = $query->latest()->get();
+
         return response()->json(['rows' => $this->sheetRows($orders)]);
     }
 
@@ -125,16 +130,27 @@ class CustomerController extends Controller
         return view('login');
     }
 
-    public function dashboard()
+    public function dashboard(Request $request, MarketingDashboardAnalytics $analytics): View|RedirectResponse
     {
-        if(Auth::check()){
-            return view('dashboard.index');
-        }else{
-            return redirect('/login');
+        if ($request->user()->outlet === 'marketing') {
+            $validated = $request->validate([
+                'period' => ['sometimes', Rule::in(['daily', 'weekly', 'monthly', '3months', '6months', 'all'])],
+                'outlet' => ['sometimes', Rule::in(array_merge(['all'], $analytics->outletOptions()))],
+            ]);
+
+            return view('dashboard.marketing', [
+                'insights' => $analytics->getInsights(
+                    $validated['period'] ?? 'weekly',
+                    $validated['outlet'] ?? 'all',
+                ),
+            ]);
         }
+
+        return view('dashboard.index');
     }
 
-    public function logout(){
+    public function logout()
+    {
         Auth::logout(); // Clears the authentication information in the user's session.
 
         return redirect('/');
