@@ -5,6 +5,8 @@ use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Validation\ValidationException;
 
 new class extends Component
 {
@@ -34,15 +36,22 @@ new class extends Component
     /** @var array<int, int> */
     private const B1G1_FREE_PRODUCT_IDS = [1, 2, 3];
 
+    private const BTS_PRODUCT_TYPE = '107';
+
+    /** @var array<int, int> */
+    private const BTS_SELECTABLE_PRODUCT_IDS = [1, 2, 3, 4];
+
     public int $b1g1FreeProductId = 1;
+
+    public int $btsProductId = 1;
 
     public function mount()
     {
-        // Produk type 106 (B1G1) selalu paling depan di list.
+        // Produk promo B1G1 dan BTS selalu ditampilkan lebih dulu.
         $this->products = Product::whereNot("type", "addon")
             ->where('status', 'active')
             ->get()
-            ->sortByDesc(fn ($p) => $p->type === '106')
+            ->sortByDesc(fn ($p) => in_array($p->type, ['106', self::BTS_PRODUCT_TYPE], true))
             ->values();
         $this->order = Order::latest()->first();
 
@@ -103,6 +112,19 @@ new class extends Component
             return;
         }
 
+        if ($this->isBtsProduct($productId)) {
+            $selectedProduct = $this->selectedBtsProduct();
+
+            OrderItem::create([
+                'order_id'   => $this->order->id,
+                'product_id' => $productId,
+                'printType'  => $selectedProduct->type,
+                'printCount' => (int) $selectedProduct->id === 1 ? 2 : 1,
+            ]);
+
+            return;
+        }
+
         $type = $this->products->where('id', $productId)->first()->type;
 
         OrderItem::create([
@@ -133,6 +155,30 @@ new class extends Component
     public function b1g1FreeProducts()
     {
         return $this->products->whereIn('id', self::B1G1_FREE_PRODUCT_IDS)->values();
+    }
+
+    public function btsSelectableProducts(): EloquentCollection
+    {
+        return $this->products->whereIn('id', self::BTS_SELECTABLE_PRODUCT_IDS)->values();
+    }
+
+    private function isBtsProduct(int $productId): bool
+    {
+        return $this->products->firstWhere('id', $productId)?->type === self::BTS_PRODUCT_TYPE;
+    }
+
+    private function selectedBtsProduct(): Product
+    {
+        if (! in_array($this->btsProductId, self::BTS_SELECTABLE_PRODUCT_IDS, true)) {
+            throw ValidationException::withMessages([
+                'btsProductId' => 'Pilih produk BTS yang valid.',
+            ]);
+        }
+
+        return $this->btsSelectableProducts()->firstWhere('id', $this->btsProductId)
+            ?? throw ValidationException::withMessages([
+                'btsProductId' => 'Pilih produk BTS yang tersedia.',
+            ]);
     }
 
     /**
@@ -402,6 +448,20 @@ new class extends Component
                                             @endforeach
                                         </div>
                                     @endif
+                                </div>
+                            @elseif ($product->type === self::BTS_PRODUCT_TYPE)
+                                <div class="col-12 mb-2 text-start">
+                                    <!-- <label for="bts-product-{{ $product->id }}" class="fw-bold fs-6 mb-1">Pilih produk</label> -->
+                                    <select id="bts-product-{{ $product->id }}"
+                                            wire:model.live="btsProductId"
+                                            class="form-select fw-bold">
+                                        @foreach ($this->btsSelectableProducts() as $btsProduct)
+                                            <option value="{{ $btsProduct->id }}">{{ $btsProduct->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('btsProductId')
+                                        <div class="small text-danger mt-1">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             @endif
                             <div class="col-12">
