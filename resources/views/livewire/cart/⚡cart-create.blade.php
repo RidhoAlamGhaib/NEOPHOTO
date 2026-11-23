@@ -162,6 +162,24 @@ new class extends Component
         return $this->products->whereIn('id', self::BTS_SELECTABLE_PRODUCT_IDS)->values();
     }
 
+    /**
+     * @return array<string, int>
+     */
+    public function btsProductSummary(int $productId): array
+    {
+        $productNamesByType = $this->btsSelectableProducts()->mapWithKeys(
+            fn ($product) => [(string) $product->type => $product->name]
+        );
+
+        return OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', $productId)
+            ->orderBy('id')
+            ->pluck('printType')
+            ->map(fn ($printType) => $productNamesByType[(string) $printType] ?? 'Produk pilihan')
+            ->countBy()
+            ->all();
+    }
+
     private function isBtsProduct(int $productId): bool
     {
         return $this->products->firstWhere('id', $productId)?->type === self::BTS_PRODUCT_TYPE;
@@ -169,6 +187,22 @@ new class extends Component
 
     private function selectedBtsProduct(): Product
     {
+        $btsProduct = $this->products->firstWhere('type', self::BTS_PRODUCT_TYPE);
+        $lockedPrintType = $btsProduct
+            ? OrderItem::where('order_id', $this->order->id)
+                ->where('product_id', $btsProduct->id)
+                ->latest('id')
+                ->value('printType')
+            : null;
+
+        if ($lockedPrintType !== null) {
+            $lockedProduct = $this->btsSelectableProducts()->firstWhere('type', (string) $lockedPrintType);
+
+            if ($lockedProduct) {
+                return $lockedProduct;
+            }
+        }
+
         if (! in_array($this->btsProductId, self::BTS_SELECTABLE_PRODUCT_IDS, true)) {
             throw ValidationException::withMessages([
                 'btsProductId' => 'Pilih produk BTS yang valid.',
@@ -186,6 +220,20 @@ new class extends Component
      */
     private function selectedB1G1FreeProduct(): Product
     {
+        $lockedPrintType = OrderItem::where('order_id', $this->order->id)
+            ->where('product_id', self::B1G1_PRODUCT)
+            ->where('printType', '!=', self::B1G1_HIGHANGLE_PRINT_TYPE)
+            ->latest('id')
+            ->value('printType');
+
+        if ($lockedPrintType !== null) {
+            $lockedProduct = $this->b1g1FreeProducts()->firstWhere('type', (string) $lockedPrintType);
+
+            if ($lockedProduct) {
+                return $lockedProduct;
+            }
+        }
+
         $freeProductId = in_array($this->b1g1FreeProductId, self::B1G1_FREE_PRODUCT_IDS, true)
             ? $this->b1g1FreeProductId
             : self::B1G1_FREE_PRODUCT_IDS[0];
@@ -405,6 +453,12 @@ new class extends Component
                 <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
             </div>
 
+            @elseif($product->type === self::BTS_PRODUCT_TYPE)
+            <div class="card__badge promo-b1g1 text-white">
+                <div class="promo-b1g1__tag">{{ $product->name }}</div>
+                <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
+            </div>
+
             @else
             <div class="card__badge fs-5">
                  Rp {{ number_format($product->price,0,',','.') }}
@@ -431,37 +485,46 @@ new class extends Component
                         <div class="row justify-content-between">
                             @if ((int) $product->id === 14)
                                 <div class="col-12 mb-2 text-start">
-                                    <label for="b1g1-free-product" class="fw-bold fs-6 mb-1">🎁 Pilih produk GRATIS</label>
-                                    <select id="b1g1-free-product"
-                                            wire:model.live="b1g1FreeProductId"
-                                            class="form-select fw-bold">
-                                        @foreach ($this->b1g1FreeProducts() as $freeProduct)
-                                            <option value="{{ $freeProduct->id }}">{{ $freeProduct->name }}</option>
-                                        @endforeach
-                                    </select>
-
                                     @if (in_array($product->id, $orderItems))
                                         <div class="small mt-1">
-                                            Gratis di cart:
+                                            Produk gratis terpilih:
                                             @foreach ($this->b1g1FreeSummary() as $freeName => $freeQty)
                                                 <span class="badge bg-success">{{ $freeName }} ×{{ $freeQty }}</span>
                                             @endforeach
                                         </div>
+                                    @else
+                                        <label for="b1g1-free-product" class="fw-bold fs-6 mb-1">🎁 Pilih produk GRATIS</label>
+                                        <select id="b1g1-free-product"
+                                                wire:model.live="b1g1FreeProductId"
+                                                class="form-select fw-bold">
+                                            @foreach ($this->b1g1FreeProducts() as $freeProduct)
+                                                <option value="{{ $freeProduct->id }}">{{ $freeProduct->name }}</option>
+                                            @endforeach
+                                        </select>
                                     @endif
                                 </div>
                             @elseif ($product->type === self::BTS_PRODUCT_TYPE)
                                 <div class="col-12 mb-2 text-start">
-                                    <!-- <label for="bts-product-{{ $product->id }}" class="fw-bold fs-6 mb-1">Pilih produk</label> -->
-                                    <select id="bts-product-{{ $product->id }}"
-                                            wire:model.live="btsProductId"
-                                            class="form-select fw-bold">
-                                        @foreach ($this->btsSelectableProducts() as $btsProduct)
-                                            <option value="{{ $btsProduct->id }}">{{ $btsProduct->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('btsProductId')
-                                        <div class="small text-danger mt-1">{{ $message }}</div>
-                                    @enderror
+                                    @if (in_array($product->id, $orderItems))
+                                        <div class="small mt-1">
+                                            Kode untuk:
+                                            @foreach ($this->btsProductSummary($product->id) as $btsProductName => $btsQty)
+                                                <span class="badge bg-success">{{ $btsProductName }} ×{{ $btsQty }}</span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <!-- <label for="bts-product-{{ $product->id }}" class="fw-bold fs-6 mb-1">Pilih produk untuk dibuatkan kode</label> -->
+                                        <select id="bts-product-{{ $product->id }}"
+                                                wire:model.live="btsProductId"
+                                                class="form-select fw-bold">
+                                            @foreach ($this->btsSelectableProducts() as $btsProduct)
+                                                <option value="{{ $btsProduct->id }}">{{ $btsProduct->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('btsProductId')
+                                            <div class="small text-danger mt-1">{{ $message }}</div>
+                                        @enderror
+                                    @endif
                                 </div>
                             @endif
                             <div class="col-12">

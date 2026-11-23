@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    Schema::table('products', function (Blueprint $table): void {
+        $table->string('status')->default('active');
+    });
+
     Schema::table('order_items', function (Blueprint $table): void {
         $table->string('printType')->nullable();
         $table->unsignedInteger('printCount')->nullable();
@@ -32,13 +36,28 @@ beforeEach(function () {
 test('b1g1 adds a paid high angle line plus the free product picked in the dropdown', function () {
     Livewire::test('cart.⚡cart-create')
         ->set('b1g1FreeProductId', 3)
-        ->call('toggleProduct', 14);
+        ->call('toggleProduct', 14)
+        ->assertDontSee('wire:model.live="b1g1FreeProductId"', false)
+        ->assertSee('Standar 6 Foto ×1');
 
     $lines = OrderItem::where('order_id', $this->order->id)->where('product_id', 14)->get();
 
     expect($lines)->toHaveCount(2);
     $this->assertDatabaseHas('order_items', ['order_id' => $this->order->id, 'product_id' => 14, 'printType' => '104', 'printCount' => 1]);
     $this->assertDatabaseHas('order_items', ['order_id' => $this->order->id, 'product_id' => 14, 'printType' => '105', 'printCount' => 1]);
+});
+
+test('b1g1 keeps its selected free product when adding another unit', function () {
+    Livewire::test('cart.⚡cart-create')
+        ->set('b1g1FreeProductId', 3)
+        ->call('toggleProduct', 14);
+
+    Livewire::test('cart.⚡cart-create')
+        ->set('b1g1FreeProductId', 1)
+        ->call('increaseProduct', 14);
+
+    expect(OrderItem::where('order_id', $this->order->id)->where('product_id', 14)->where('printType', '105')->count())->toBe(2);
+    expect(OrderItem::where('order_id', $this->order->id)->where('product_id', 14)->where('printType', '101')->count())->toBe(0);
 });
 
 test('b1g1 free standar 2 lembar prints two sheets', function () {

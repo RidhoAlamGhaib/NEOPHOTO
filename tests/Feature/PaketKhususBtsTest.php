@@ -44,7 +44,9 @@ test('BTS package generates one code for the selected product', function () {
         ->set('btsProductId', 3)
         ->call('toggleProduct', $this->btsProduct->id);
 
-    $cart->assertHasNoErrors();
+    $cart->assertHasNoErrors()
+        ->assertDontSee('wire:model.live="btsProductId"', false)
+        ->assertSee('Standar 6 Foto ×1');
 
     $item = OrderItem::where('order_id', $this->order->id)->firstOrFail();
 
@@ -82,6 +84,19 @@ test('BTS package preserves the two-print count for Standar 2 Lembar', function 
     ]);
 
     expect(OrderItem::where('order_id', $this->order->id)->count())->toBe(1);
+});
+
+test('BTS package keeps its selected product when adding another unit', function () {
+    Livewire::test('cart.⚡cart-create')
+        ->set('btsProductId', 3)
+        ->call('toggleProduct', $this->btsProduct->id);
+
+    Livewire::test('cart.⚡cart-create')
+        ->set('btsProductId', 2)
+        ->call('increaseProduct', $this->btsProduct->id);
+
+    expect(OrderItem::where('order_id', $this->order->id)->where('printType', '105')->count())->toBe(2);
+    expect(OrderItem::where('order_id', $this->order->id)->where('printType', '103')->count())->toBe(0);
 });
 
 test('BTS package rejects a product outside its selector choices', function () {
