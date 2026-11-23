@@ -92,6 +92,8 @@ new class extends Component
     private const HIGHANGLE_BUNDLE_DEADLINE    = '2026-12-31';
     private const HIGHANGLE_BUNDLE_DISCOUNT    = 25000;
 
+    private const BTS_PACKAGE_TYPE = '107';
+
     public bool $highAngleBundleEligible = false;
     public bool $highAngleBundleApplied  = false;
 
@@ -131,6 +133,13 @@ new class extends Component
         return Product::whereIn('id', [1, 2, 3])
             ->where('type', (string) $printType)
             ->value('name') ?? 'Standar';
+    }
+
+    public function btsProductName(int $printType): string
+    {
+        return Product::whereIn('id', [1, 2, 3, 4])
+            ->where('type', (string) $printType)
+            ->value('name') ?? 'Produk pilihan';
     }
 
     // Return true kalau promo HARUS diblokir (cart isinya B1G1 doang).
@@ -1353,11 +1362,14 @@ new class extends Component
                                                         ? ' (Gratis: ' . $this->b1g1FreeProductName((int) $item->printType) . ')'
                                                         : ' (High Angle)')
                                                     : '';
+                                                $btsLabel = $item->product->type === self::BTS_PACKAGE_TYPE
+                                                    ? ' (Kode untuk: ' . $this->btsProductName((int) $item->printType) . ')'
+                                                    : '';
                                                 $linePrice   = $isB1G1Bonus ? 0 : $item->product->price;
                                             @endphp
                                             <div class="border-bottom pb-2">
                                                 <div class="d-flex justify-content-between fw-bold">
-                                                    <span>{{ $item->product->name }}{{ $b1g1Label }}</span>
+                                                    <span>{{ $item->product->name }}{{ $b1g1Label }}{{ $btsLabel }}</span>
                                                     @if (!$this->appr)
                                                         @if ($isB1G1Bonus)
                                                             <span class="text-success">GRATIS</span>
