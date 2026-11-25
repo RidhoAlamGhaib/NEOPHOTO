@@ -38,6 +38,8 @@ new class extends Component
 
     private const BTS_PRODUCT_TYPE = '107';
 
+    private const BTS_PRICE_SURCHARGE = 5000;
+
     /** @var array<int, int> */
     private const BTS_SELECTABLE_PRODUCT_IDS = [1, 2, 3, 4, 13];
 
@@ -115,6 +117,12 @@ new class extends Component
         if ($this->isBtsProduct($productId)) {
             $selectedProduct = $this->selectedBtsProduct();
 
+            if (! $selectedProduct) {
+                throw ValidationException::withMessages([
+                    'btsProductId' => 'Pilih produk BTS yang valid.',
+                ]);
+            }
+
             OrderItem::create([
                 'order_id'   => $this->order->id,
                 'product_id' => $productId,
@@ -162,6 +170,15 @@ new class extends Component
         return $this->products->whereIn('id', self::BTS_SELECTABLE_PRODUCT_IDS)->values();
     }
 
+    public function btsPriceForSelectedProduct(): ?float
+    {
+        $selectedProduct = $this->selectedBtsProduct();
+
+        return $selectedProduct
+            ? (float) $selectedProduct->price + self::BTS_PRICE_SURCHARGE
+            : null;
+    }
+
     /**
      * @return array<string, int>
      */
@@ -185,7 +202,7 @@ new class extends Component
         return $this->products->firstWhere('id', $productId)?->type === self::BTS_PRODUCT_TYPE;
     }
 
-    private function selectedBtsProduct(): Product
+    private function selectedBtsProduct(): ?Product
     {
         $btsProduct = $this->products->firstWhere('type', self::BTS_PRODUCT_TYPE);
         $lockedPrintType = $btsProduct
@@ -204,15 +221,10 @@ new class extends Component
         }
 
         if (! in_array($this->btsProductId, self::BTS_SELECTABLE_PRODUCT_IDS, true)) {
-            throw ValidationException::withMessages([
-                'btsProductId' => 'Pilih produk BTS yang valid.',
-            ]);
+            return null;
         }
 
-        return $this->btsSelectableProducts()->firstWhere('id', $this->btsProductId)
-            ?? throw ValidationException::withMessages([
-                'btsProductId' => 'Pilih produk BTS yang tersedia.',
-            ]);
+        return $this->btsSelectableProducts()->firstWhere('id', $this->btsProductId);
     }
 
     /**
@@ -432,6 +444,11 @@ new class extends Component
             @endphp
             <div class="card__badge selected fs-4 text-white">
                 <i class="bi bi-cart-check text-white fw-bold"></i>-{{ $unitCount }}
+                @if ($product->type === self::BTS_PRODUCT_TYPE)
+                    @if (($btsPrice = $this->btsPriceForSelectedProduct()) !== null)
+                        <div class="fs-6">Rp {{ number_format($btsPrice, 0, ',', '.') }}</div>
+                    @endif
+                @endif
             </div>
 
             @elseif($isHolidayProduct)
@@ -456,7 +473,9 @@ new class extends Component
             @elseif($product->type === self::BTS_PRODUCT_TYPE)
             <div class="card__badge promo-b1g1 text-white">
                 <div class="promo-b1g1__tag">{{ $product->name }}</div>
-                <div class="promo-b1g1__new">Rp {{ number_format($product->price, 0, ',', '.') }}</div>
+                @if (($btsPrice = $this->btsPriceForSelectedProduct()) !== null)
+                    <div class="promo-b1g1__new">Rp {{ number_format($btsPrice, 0, ',', '.') }}</div>
+                @endif
             </div>
 
             @else

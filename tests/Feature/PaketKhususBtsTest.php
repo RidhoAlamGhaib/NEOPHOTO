@@ -41,13 +41,14 @@ test('BTS package generates one code for the selected product', function () {
         ->assertSee('Paket Khusus BTS')
         ->assertSee('Pilih produk untuk dibuatkan kode')
         ->assertSee('High Angle')
-        ->assertSee('Rp 65.000')
+        ->assertSee('Rp 55.000')
         ->set('btsProductId', 3)
         ->call('toggleProduct', $this->btsProduct->id);
 
     $cart->assertHasNoErrors()
         ->assertDontSee('wire:model.live="btsProductId"', false)
-        ->assertSee('Standar 6 Foto ×1');
+        ->assertSee('Standar 6 Foto ×1')
+        ->assertSee('Rp 50.000');
 
     $item = OrderItem::where('order_id', $this->order->id)->firstOrFail();
 
@@ -68,14 +69,18 @@ test('BTS package generates one code for the selected product', function () {
 
     Livewire::test('purchase.⚡create', ['id' => $this->order->id])
         ->assertSee('Paket Khusus BTS (Kode untuk: Standar 6 Foto)')
-        ->assertSee('Rp 65.000');
+        ->assertSee('Rp 50.000');
+
+    expect((float) Livewire::test('purchase.⚡create', ['id' => $this->order->id])->instance()->total)
+        ->toBe(50000.0);
 });
 
 test('BTS package preserves the two-print count for Standar 2 Lembar', function () {
     Livewire::test('cart.⚡cart-create')
         ->set('btsProductId', 1)
         ->call('toggleProduct', $this->btsProduct->id)
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertSee('Rp 55.000');
 
     $this->assertDatabaseHas('order_items', [
         'order_id' => $this->order->id,
@@ -85,6 +90,20 @@ test('BTS package preserves the two-print count for Standar 2 Lembar', function 
     ]);
 
     expect(OrderItem::where('order_id', $this->order->id)->count())->toBe(1);
+});
+
+test('BTS package adds 5000 to the High Angle price', function () {
+    Livewire::test('cart.⚡cart-create')
+        ->set('btsProductId', 4)
+        ->assertSee('Rp 65.000')
+        ->call('toggleProduct', $this->btsProduct->id)
+        ->assertHasNoErrors()
+        ->assertSee('Rp 65.000');
+
+    $this->actingAs(User::factory()->create(['outlet' => 'Neo Soho']));
+
+    expect((float) Livewire::test('purchase.⚡create', ['id' => $this->order->id])->instance()->total)
+        ->toBe(65000.0);
 });
 
 test('BTS package uses the ID/Visa no-code exception', function () {
@@ -111,7 +130,11 @@ test('BTS package uses the ID/Visa no-code exception', function () {
     $this->actingAs(User::factory()->create(['outlet' => 'Neo Soho']));
 
     Livewire::test('purchase.⚡create', ['id' => $this->order->id])
-        ->assertSee('Paket Khusus BTS (Kode untuk: ID / VISA)');
+        ->assertSee('Paket Khusus BTS (Kode untuk: ID / VISA)')
+        ->assertSee('Rp 50.000');
+
+    expect((float) Livewire::test('purchase.⚡create', ['id' => $this->order->id])->instance()->total)
+        ->toBe(50000.0);
 });
 
 test('BTS package keeps its selected product when adding another unit', function () {

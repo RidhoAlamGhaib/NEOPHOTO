@@ -93,6 +93,8 @@ new class extends Component
     private const HIGHANGLE_BUNDLE_DISCOUNT    = 25000;
 
     private const BTS_PACKAGE_TYPE = '107';
+    private const BTS_SELECTABLE_PRODUCT_IDS = [1, 2, 3, 4, 13];
+    private const BTS_PRICE_SURCHARGE = 5000;
 
     public bool $highAngleBundleEligible = false;
     public bool $highAngleBundleApplied  = false;
@@ -117,7 +119,7 @@ new class extends Component
 
         return (float) $this->order->items
             ->filter(fn($it) => (int) $it->product_id !== 14)
-            ->sum(fn($it) => (float) $it->product->price);
+            ->sum(fn($item) => $this->priceForOrderItem($item));
     }
 
     // B1G1 = 2 baris product 14: High Angle (printType 104) yang dibayar 60K,
@@ -137,9 +139,31 @@ new class extends Component
 
     public function btsProductName(int $printType): string
     {
-        return Product::whereIn('id', [1, 2, 3, 4, 13])
+        return Product::whereIn('id', self::BTS_SELECTABLE_PRODUCT_IDS)
             ->where('type', (string) $printType)
             ->value('name') ?? 'Produk pilihan';
+    }
+
+    public function btsProductPrice(int $printType): float
+    {
+        $product = Product::whereIn('id', self::BTS_SELECTABLE_PRODUCT_IDS)
+            ->where('type', (string) $printType)
+            ->firstOrFail();
+
+        return (float) $product->price + self::BTS_PRICE_SURCHARGE;
+    }
+
+    public function priceForOrderItem(OrderItem $item): float
+    {
+        if ($this->isB1G1FreeLine($item)) {
+            return 0;
+        }
+
+        if ($item->product->type === self::BTS_PACKAGE_TYPE) {
+            return $this->btsProductPrice((int) $item->printType);
+        }
+
+        return (float) $item->product->price;
     }
 
     // Return true kalau promo HARUS diblokir (cart isinya B1G1 doang).
@@ -876,15 +900,9 @@ new class extends Component
 
     public function getTotalProperty()
     {
-        $productTotal = $this->order->items->sum(function ($item) {
-            // B1G1: baris produk gratis = 0, harga 60K cuma dihitung sekali
-            // di baris High Angle (104).
-            if ($this->isB1G1FreeLine($item)) {
-                return 0;
-            }
-
-            return $item->product->price;
-        });
+        $productTotal = $this->order->items->sum(
+            fn ($item) => $this->priceForOrderItem($item)
+        );
 
         $addonTotal = $this->orderAddon->sum(function ($addon) {
             $product = Product::find($addon->addon_id);
@@ -1365,7 +1383,7 @@ new class extends Component
                                                 $btsLabel = $item->product->type === self::BTS_PACKAGE_TYPE
                                                     ? ' (Kode untuk: ' . $this->btsProductName((int) $item->printType) . ')'
                                                     : '';
-                                                $linePrice   = $isB1G1Bonus ? 0 : $item->product->price;
+                                                $linePrice   = $this->priceForOrderItem($item);
                                             @endphp
                                             <div class="border-bottom pb-2">
                                                 <div class="d-flex justify-content-between fw-bold">
