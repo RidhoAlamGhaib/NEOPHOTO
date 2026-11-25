@@ -137,7 +137,7 @@ new class extends Component
 
     public function btsProductName(int $printType): string
     {
-        return Product::whereIn('id', [1, 2, 3, 4])
+        return Product::whereIn('id', [1, 2, 3, 4, 13])
             ->where('type', (string) $printType)
             ->value('name') ?? 'Produk pilihan';
     }

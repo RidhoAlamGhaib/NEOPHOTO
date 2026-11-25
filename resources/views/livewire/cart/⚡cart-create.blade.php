@@ -39,7 +39,7 @@ new class extends Component
     private const BTS_PRODUCT_TYPE = '107';
 
     /** @var array<int, int> */
-    private const BTS_SELECTABLE_PRODUCT_IDS = [1, 2, 3, 4];
+    private const BTS_SELECTABLE_PRODUCT_IDS = [1, 2, 3, 4, 13];
 
     public int $b1g1FreeProductId = 1;
 

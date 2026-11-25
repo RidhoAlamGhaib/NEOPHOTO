@@ -25,6 +25,7 @@ beforeEach(function () {
     Product::create(['id' => 2, 'name' => 'Standar 4 Foto', 'type' => '103', 'price' => '45000']);
     Product::create(['id' => 3, 'name' => 'Standar 6 Foto', 'type' => '105', 'price' => '45000']);
     Product::create(['id' => 4, 'name' => 'High Angle', 'type' => '104', 'price' => '60000']);
+    Product::create(['id' => 13, 'name' => 'ID / VISA', 'type' => '111', 'price' => '45000']);
 
     $customer = customer::create(['name' => 'BTS Test', 'telp' => '08123456789']);
     $this->order = Order::create([
@@ -84,6 +85,33 @@ test('BTS package preserves the two-print count for Standar 2 Lembar', function 
     ]);
 
     expect(OrderItem::where('order_id', $this->order->id)->count())->toBe(1);
+});
+
+test('BTS package uses the ID/Visa no-code exception', function () {
+    Livewire::test('cart.⚡cart-create')
+        ->assertSee('ID / VISA')
+        ->set('btsProductId', 13)
+        ->call('toggleProduct', $this->btsProduct->id)
+        ->assertHasNoErrors()
+        ->assertSee('ID / VISA ×1');
+
+    $item = OrderItem::where('order_id', $this->order->id)->firstOrFail();
+
+    expect((int) $item->product_id)->toBe((int) $this->btsProduct->id);
+    expect((string) $item->printType)->toBe('111');
+    expect((int) $item->printCount)->toBe(1);
+
+    Http::preventStrayRequests();
+
+    expect(Livewire::new('purchase.⚡create')->puppet($this->order->id))->toBeTrue();
+
+    expect(Http::recorded())->toHaveCount(0);
+    $this->assertDatabaseHas('order_items', ['id' => $item->id, 'code' => '000000000']);
+
+    $this->actingAs(User::factory()->create(['outlet' => 'Neo Soho']));
+
+    Livewire::test('purchase.⚡create', ['id' => $this->order->id])
+        ->assertSee('Paket Khusus BTS (Kode untuk: ID / VISA)');
 });
 
 test('BTS package keeps its selected product when adding another unit', function () {
