@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * NEO PHOTO booth <-> website.
@@ -110,6 +111,51 @@ class BoothController extends Controller
             'print_type'  => $item->printType,
             'print_count' => (int) $item->printCount,
         ]);
+    }
+	
+	    /**
+     * The customer pressed MULAI: use the code up (order_items.used_at / used_machine).
+     * Without the used_at column yet: start anyway, nothing is marked.
+     */
+    public function couponUse(Request $r)
+    {
+        if (!$this->authorized($r)) {
+            return response()->json(['error' => 'unauthorized'], 401);
+        }
+        $in = $r->json()->all();
+        $code = self::str($in, 'code', 255);
+        $itemId = self::int($in, 'item_id');
+        $q = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.code', $code);
+        if ($itemId > 0) {
+            $q->where('order_items.id', $itemId);
+        }
+        $item = $code === '' ? null
+            : $q->orderByDesc('order_items.id')->select('order_items.id', 'orders.status')->first();
+        if (!$item) {
+            return response()->json(['valid' => false, 'reason' => 'not_found',
+                                     'message' => 'Kode tidak ditemukan'], 404);
+        }
+        if (strtolower(trim((string) $item->status)) !== 'paid') {
+            return response()->json(['valid' => false, 'reason' => 'not_paid',
+                                     'message' => 'Pesanan belum lunas'], 409);
+        }
+        if (!Schema::hasColumn('order_items', 'used_at')) {
+            return response()->json(['valid' => true, 'ok' => true, 'item_id' => (int) $item->id,
+                                     'marked' => false]);
+        }
+        $set = ['used_at' => Carbon::now('Asia/Jakarta')->format('Y-m-d H:i:s')];
+        if (Schema::hasColumn('order_items', 'used_machine')) {
+            $machine = trim(self::str($in, 'machine', 40) . ' ' . self::str($in, 'outlet', 19));
+            $set['used_machine'] = $machine !== '' ? $machine : null;
+        }
+        $n = DB::table('order_items')->where('id', $item->id)->whereNull('used_at')->update($set);
+        if ($n !== 1) {
+            return response()->json(['valid' => false, 'reason' => 'used',
+                                     'message' => 'Kode sudah dipakai'], 409);
+        }
+        return response()->json(['valid' => true, 'ok' => true, 'item_id' => (int) $item->id, 'marked' => true]);
     }
 
     /**
